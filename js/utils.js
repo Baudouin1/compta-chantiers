@@ -331,3 +331,35 @@ export function menuChoix(titreMenu, options) {
   };
   document.body.appendChild(fond);
 }
+
+// ---------- Saisie d'une durée : deux cases "h" et "min" (clavier chiffré de l'iPhone) ----------
+// Le vrai champ (caché) garde la durée en heures décimales : 1 h 50 -> 1.83
+// attrs : attributs du champ caché (ex. 'name="heures_nettoyage"' ou 'data-heures-bateau="0"')
+export function champDuree(attrs, valeur) {
+  const total = valeur != null && valeur !== '' ? Math.round(Number(valeur) * 60) : null;
+  const h = total != null ? Math.floor(total / 60) : '';
+  const m = total != null ? total % 60 : '';
+  return `
+    <span class="duree">
+      <input type="hidden" ${attrs} value="${valeur ?? ''}">
+      <input class="duree-h" inputmode="numeric" pattern="[0-9]*" value="${h}" placeholder="0" aria-label="heures"><span>h</span>
+      <input class="duree-m" inputmode="numeric" pattern="[0-9]*" value="${m === 0 && h !== '' ? '' : m}" placeholder="00" aria-label="minutes"><span>min</span>
+    </span>`;
+}
+
+// À appeler après avoir affiché le formulaire : recopie h + min dans le champ caché
+export function brancherDurees(racine) {
+  racine.querySelectorAll('.duree').forEach(bloc => {
+    const cache = bloc.querySelector('input[type=hidden]');
+    const [h, m] = [bloc.querySelector('.duree-h'), bloc.querySelector('.duree-m')];
+    const maj = () => {
+      const hh = h.value.replace(/\D/g, ''), mm = m.value.replace(/\D/g, '');
+      cache.value = hh === '' && mm === '' ? '' : String(Math.round((Number(hh || 0) + Number(mm || 0) / 60) * 100) / 100);
+      cache.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    h.addEventListener('input', maj);
+    m.addEventListener('input', maj);
+    // Après 2 chiffres d'heures… on passe aux minutes ; les minutes sont limitées à 59
+    m.addEventListener('change', () => { if (Number(m.value) > 59) { h.value = Number(h.value || 0) + Math.floor(m.value / 60); m.value = m.value % 60; maj(); } });
+  });
+}

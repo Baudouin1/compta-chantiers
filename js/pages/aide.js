@@ -10,7 +10,8 @@ const RUBRIQUES = [
       <li><strong>Clients</strong> : crée chaque client avec son bateau (ou ses bateaux, séparés par une virgule)
         et son <em>mode de facturation</em> : à l'heure, forfait par bateau ou sur devis.
         Si un client a un prix différent, change ses tarifs dans sa fiche.</li>
-      <li>Après chaque passage : <strong>+ Nouvelle intervention</strong>. Tu mets les heures, l'appli calcule
+      <li>Après chaque passage : <strong>+ Nouvelle intervention</strong>. Tu mets les heures (une case pour
+        les heures, une pour les minutes : 1 h 50 = « 1 » et « 50 »), l'appli calcule
         la facture, ton bénéfice net et ton taux horaire net.</li>
       <li>Ajoute tes <strong>frais réels</strong> sur l'intervention (produits, déplacement…) avec « − Dépense »
         ou les boutons rapides.</li>

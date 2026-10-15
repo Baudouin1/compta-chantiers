@@ -4,6 +4,8 @@ import { db } from './db.js';
 import { TARIFS_DEFAUT, CHAMPS_TARIFS } from './utils.js';
 
 const n = v => Number(v) || 0;
+// Les heures sont gardées avec 2 décimales (1 h 50 -> 1,83) : on les ramène à la minute exacte
+const minuteExacte = v => Math.round(n(v) * 60) / 60;
 const arrondi = v => Math.round(v * 100) / 100;
 
 // Tarifs généraux (Réglages > Mes tarifs)
@@ -37,10 +39,10 @@ export function calculer(c) {
   // Temps passé
   const bateaux = Array.isArray(c.bateaux_faits) ? c.bateaux_faits : [];
   const bateauxFaits = bateaux.filter(b => b.fait);
-  const heuresNettoyage = n(c.heures_nettoyage);
-  const heuresEntretien = n(c.heures_entretien);
+  const heuresNettoyage = minuteExacte(c.heures_nettoyage);
+  const heuresEntretien = minuteExacte(c.heures_entretien);
   const heures = mode === 'forfait'
-    ? bateauxFaits.reduce((s, b) => s + n(b.heures), 0) + heuresNettoyage + heuresEntretien
+    ? bateauxFaits.reduce((s, b) => s + minuteExacte(b.heures), 0) + heuresNettoyage + heuresEntretien
     : heuresNettoyage + heuresEntretien;
 
   // Main-d'œuvre

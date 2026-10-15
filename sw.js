@@ -3,7 +3,7 @@
 // et la copie ne sert que si le réseau ne répond pas.
 // Les données Supabase ne passent PAS par ici (elles viennent toujours d'internet).
 
-const CACHE = 'compta-chantiers-v7';
+const CACHE = 'compta-chantiers-v8';
 
 self.addEventListener('install', () => self.skipWaiting());
 

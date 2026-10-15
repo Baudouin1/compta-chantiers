@@ -73,7 +73,6 @@ class Feuille {
   // Tableau : en-tête coloré, lignes (alternées ou colorées), ligne TOTAL optionnelle
   tableau(r0, colonnes, lignes, { styleLigne, total, filtre } = {}) {
     colonnes.forEach((col, c) => this.case(r0, c, col.titre, S.entete));
-    this.hauteurs[r0] = 30;
     lignes.forEach((ligne, i) => {
       const r = r0 + 1 + i;
       const fondLigne = styleLigne?.(ligne) || (i % 2 ? { fill: { fgColor: { rgb: ZEBRE } } } : {});
@@ -101,9 +100,20 @@ class Feuille {
     if (filtre && lignes.length) {
       this.filtre = { ref: `${XLSX.utils.encode_cell({ r: r0, c: 0 })}:${XLSX.utils.encode_cell({ r: r0 + lignes.length, c: colonnes.length - 1 })}` };
     }
+    // Largeur : assez pour le titre (sur 2 lignes max) + la flèche de tri, et pour les valeurs
     colonnes.forEach((col, c) => {
-      this.largeurs[c] = { wch: Math.max(this.largeurs[c]?.wch || 0, col.largeur || 12), hidden: !!col.cache };
+      const titre = String(col.titre);
+      const motLePlusLong = Math.max(...titre.split(/[\s-]+/).map(m => m.length));
+      const pourTitre = Math.max(motLePlusLong, Math.ceil(titre.length / 2)) + (filtre ? 5 : 2);
+      const pourValeurs = col.retour ? 0 : Math.min(40, Math.max(0, ...lignes.map(l => {
+        const v = col.val(l);
+        if (v == null || v === '') return 0;
+        return typeof v === 'number' ? (col.format === DATE ? 10 : col.format === POURCENT ? 5 : 13) : String(v).length;
+      })) + 2);
+      const largeur = Math.max(col.largeur || 10, pourTitre, pourValeurs);
+      this.largeurs[c] = { wch: Math.max(this.largeurs[c]?.wch || 0, largeur), hidden: !!col.cache };
     });
+    this.hauteurs[r0] = 34;
     return fin;
   }
   // Une "carte" chiffre clé : libellé au-dessus, gros chiffre en dessous

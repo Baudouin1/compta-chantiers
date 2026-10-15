@@ -2,7 +2,7 @@
 import { db, q } from '../db.js';
 import {
   esc, euros, dateFr, titre, toast, aller, surEnvoi, tenter, dateValide, classeMarge, nomCategorie, iconeCategorie,
-  nombreFr, heuresFr, lireHeures, aujourdhui, STATUTS, PASTILLES_STATUT, MODES_PAIEMENT, MODES_FACTURATION,
+  nombreFr, heuresFr, lireHeures, aujourdhui, champDuree, brancherDurees, STATUTS, PASTILLES_STATUT, MODES_PAIEMENT, MODES_FACTURATION,
 } from '../utils.js';
 import { calculer, tarifsGeneraux, tarifsClient, listeBateaux } from '../calculs.js';
 import { lireNombre } from './reglages.js';
@@ -362,8 +362,8 @@ export async function formulaire(main, { id, query }) {
         <div id="bloc-heures">
           <h3>⏱️ Temps passé</h3>
           <div class="cote-a-cote">
-            <label>Heures nettoyage <input name="heures_nettoyage" inputmode="decimal" value="${nombreFr(v.heures_nettoyage)}" placeholder="ex. 2h30"></label>
-            <label>Heures entretien <input name="heures_entretien" inputmode="decimal" value="${nombreFr(v.heures_entretien)}" placeholder="ex. 1,5"></label>
+            <label>Nettoyage ${champDuree('name="heures_nettoyage"', v.heures_nettoyage)}</label>
+            <label>Entretien ${champDuree('name="heures_entretien"', v.heures_entretien)}</label>
           </div>
         </div>
 
@@ -372,7 +372,7 @@ export async function formulaire(main, { id, query }) {
           ${(v.bateaux_faits || []).length ? (v.bateaux_faits || []).map((b, i) => `
             <div class="bateau-fait">
               <label class="case"><input type="checkbox" data-bateau="${i}" ${b.fait ? 'checked' : ''}> ${esc(b.nom)}</label>
-              <input data-heures-bateau="${i}" inputmode="decimal" value="${nombreFr(b.heures)}" placeholder="heures">
+              ${champDuree(`data-heures-bateau="${i}"`, b.heures)}
             </div>`).join('')
             : '<p class="aide">Ajoute les bateaux dans la fiche du client (séparés par une virgule).</p>'}
           ${champNombre('forfait_bateau', 'Forfait par bateau (€)', v.forfait_bateau)}
@@ -471,6 +471,7 @@ export async function formulaire(main, { id, query }) {
 
   function brancher() {
     const form = main.querySelector('#form-chantier');
+    brancherDurees(form);
 
     // Afficher les blocs selon le mode de facturation
     const majMode = () => {
