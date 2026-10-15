@@ -2,7 +2,7 @@
 // Tableau de bord, un onglet par client (comme l'ancien Excel), livre des recettes, mouvements, etc.
 // Les colonnes "id" (masquées) servent seulement à pouvoir tout remettre en cas de problème.
 import { db, q } from './db.js';
-import { nomCategorie, STATUTS, MODES_PAIEMENT, MODES_FACTURATION, totaux } from './utils.js';
+import { nomCategorie, STATUTS, MODES_PAIEMENT, MODES_FACTURATION } from './utils.js';
 import { calculer, moyennes, tarifsGeneraux, tarifsClient, listeBateaux, numeroSemaine } from './calculs.js';
 
 // ---------- Couleurs et formats ----------
@@ -150,18 +150,17 @@ function ongletTableauDeBord(F, { email, chantiers, mouvements, clients }) {
   const annee = new Date().getFullYear();
   const deLAnnee = chantiers.filter(c => (c.date_debut || '').startsWith(String(annee)));
   const an = moyennes(deLAnnee);
-  const caisse = totaux(mouvements.filter(m => m.date.startsWith(String(annee))));
-  const reste = chantiers.filter(c => ['facture', 'a_facturer'].includes(c.statut)).reduce((s, c) => s + c.r.resteAEncaisser, 0);
+  const aFacturer = chantiers.filter(c => c.statut === 'a_facturer').reduce((s, c) => s + c.r.facture, 0);
 
   F.case(0, 0, 'BluePrestige — Tableau de bord', S.titre); F.hauteurs[0] = 30;
   F.case(1, 0, `Sauvegarde du ${new Date().toLocaleString('fr-FR')}${email ? ' · ' + email : ''}`, S.sousTitre);
   F.case(3, 0, `Année ${annee}`, S.section);
-  F.carte(4, 0, 'Encaissé (URSSAF)', caisse.gains, EUROS);
-  F.carte(4, 1, 'Facturé', an.facture, EUROS);
-  F.carte(4, 2, 'Bénéfice net', an.benefice, EUROS);
+  F.carte(4, 0, 'Facturé', an.facture, EUROS);
+  F.carte(4, 1, 'Bénéfice net', an.benefice, EUROS);
+  F.carte(4, 2, 'Frais réels', an.fraisReels, EUROS);
   F.carte(4, 3, 'Taux horaire net', an.tauxHoraireNet ?? 0, EUROS_H);
   F.carte(4, 4, 'Heures travaillées', an.heures, HEURES);
-  F.carte(4, 5, 'Reste à encaisser', reste, EUROS);
+  F.carte(4, 5, 'À facturer (Odoo)', aFacturer, EUROS);
   for (let c = 0; c <= 7; c++) F.largeurs[c] = { wch: 19 };
 
   // Mois par mois
@@ -170,9 +169,8 @@ function ongletTableauDeBord(F, { email, chantiers, mouvements, clients }) {
   const mois = Array.from({ length: 12 }, (_, i) => {
     const p = `${annee}-${String(i + 1).padStart(2, '0')}`;
     const cs = deLAnnee.filter(c => c.date_debut.startsWith(p));
-    return { mois: new Date(annee, i, 1).toLocaleDateString('fr-FR', { month: 'long' }), ...moyennes(cs),
-      encaisse: totaux(mouvements.filter(m => m.date.startsWith(p))).gains };
-  }).filter(m => m.nombre || m.encaisse);
+    return { mois: new Date(annee, i, 1).toLocaleDateString('fr-FR', { month: 'long' }), ...moyennes(cs) };
+  }).filter(m => m.nombre);
   r = F.tableau(r, [
     { titre: 'Mois', val: m => m.mois.charAt(0).toUpperCase() + m.mois.slice(1) },
     { titre: 'Interventions', val: m => m.nombre, total: 'somme' },
@@ -181,14 +179,13 @@ function ongletTableauDeBord(F, { email, chantiers, mouvements, clients }) {
     { titre: 'Frais réels', val: m => m.fraisReels, format: EUROS, total: 'somme' },
     { titre: 'Bénéfice net', val: m => m.benefice, format: EUROS, total: 'somme', style: couleurSigne },
     { titre: 'Taux horaire net', val: m => m.tauxHoraireNet, format: EUROS_H },
-    { titre: 'Encaissé', val: m => m.encaisse, format: EUROS, total: 'somme' },
   ], mois, { total: true }) + 2;
 
   // Par client
   F.case(r, 0, 'Par client (toutes les années)', S.section); r++;
   const parClient = clients.map(cl => {
     const cs = chantiers.filter(c => c.client_id === cl.id);
-    return { nom: cl.nom, ...moyennes(cs), reste: cs.filter(c => ['facture', 'a_facturer'].includes(c.statut)).reduce((s, c) => s + c.r.resteAEncaisser, 0) };
+    return { nom: cl.nom, ...moyennes(cs) };
   }).filter(x => x.nombre).sort((a, b) => b.benefice - a.benefice);
   r = F.tableau(r, [
     { titre: 'Client', val: x => x.nom },
@@ -198,20 +195,18 @@ function ongletTableauDeBord(F, { email, chantiers, mouvements, clients }) {
     { titre: 'Bénéfice net', val: x => x.benefice, format: EUROS, total: 'somme', style: couleurSigne },
     { titre: 'Taux horaire net', val: x => x.tauxHoraireNet, format: EUROS_H },
     { titre: 'Marge', val: x => x.margePct, format: POURCENT },
-    { titre: 'Reste à encaisser', val: x => x.reste, format: EUROS, total: 'somme' },
   ], parClient, { total: true }) + 2;
 
-  // À facturer / en attente
-  const attente = chantiers.filter(c => ['a_facturer', 'facture'].includes(c.statut))
+  // Travail fait, pas encore facturé dans Odoo
+  const attente = chantiers.filter(c => c.statut === 'a_facturer')
     .sort((a, b) => (a.date_debut || '').localeCompare(b.date_debut || ''));
   if (attente.length) {
-    F.case(r, 0, 'À facturer et en attente de règlement', S.section); r++;
+    F.case(r, 0, 'À facturer dans Odoo', S.section); r++;
     F.tableau(r, [
       { titre: 'Date', val: c => c.date_debut, format: DATE },
       { titre: 'Client', val: c => c.clients?.nom },
       { titre: 'Intervention', val: c => c.nom },
-      { titre: 'Statut', val: c => STATUTS[c.statut], style: styleStatut },
-      { titre: 'Montant', val: c => c.r.resteAEncaisser, format: EUROS, total: 'somme' },
+      { titre: 'Montant', val: c => c.r.facture, format: EUROS, total: 'somme' },
     ], attente, { total: true });
   }
 }
@@ -258,7 +253,6 @@ function ongletClient(F, cl, cs, generaux) {
     { titre: 'Marge', val: c => c.r.margePct, format: POURCENT, largeur: 8 },
     { titre: 'Gain / perte conso', val: c => (c.r.consommables ? c.r.gainConso : null), format: EUROS, total: 'somme', largeur: 12, style: couleurSigne },
     { titre: 'Règlement', val: c => STATUTS[c.statut], largeur: 18, style: styleStatut },
-    { titre: 'Encaissé', val: c => c.r.encaisse || null, format: EUROS, total: 'somme', largeur: 12 },
     { titre: 'N° facture', val: c => c.numero_facture, largeur: 12 },
     { titre: 'Commentaire', val: c => c.description, largeur: 45, retour: true },
     { titre: 'id', val: c => c.id, cache: true },

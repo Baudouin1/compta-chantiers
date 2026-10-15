@@ -24,7 +24,7 @@ export async function liste(main, { query }) {
     .order('date_debut', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }));
 
   let recherche = '';
-  const filtres = { tous: 'Tous', a_facturer: '🔴 À facturer', facture: '🟠 En attente', en_cours: 'En cours', devis: 'Devis', paye: '🟢 Payés', ne_pas_facturer: '⚪ Non facturés' };
+  const filtres = { tous: 'Tous', a_facturer: '🔴 À facturer', facture: '🟠 Facturés', en_cours: 'En cours', devis: 'Devis', paye: '🟢 Payés', ne_pas_facturer: '⚪ Non facturés' };
   const compte = k => chantiers.filter(c => k === 'tous' || c.statut === k).length;
 
   function dessiner() {
@@ -115,8 +115,8 @@ export async function fiche(main, { id }) {
   // Bouton d'action selon le statut
   const action = {
     en_cours: ['🧾 Marquer « à facturer »', 'a_facturer'],
-    a_facturer: ['🧾 Marquer comme facturé', 'facture'],
-    facture: ['💶 Enregistrer le paiement', 'paye'],
+    a_facturer: ['🧾 C\'est facturé (dans Odoo)', 'facture'],
+    facture: ['🟢 C\'est payé', 'paye'],
   }[c.statut];
 
   main.innerHTML = `
@@ -144,13 +144,11 @@ export async function fiche(main, { id }) {
     </div>
 
     <div class="carte facture-detail">
-      <h3 style="margin-top:0">🧾 Facture</h3>
+      <h3 style="margin-top:0">🧮 Calcul</h3>
       ${lignes.map(([t, v]) => `<div class="ligne-calcul"><span>${t}</span><span>${v == null ? '' : euros(v)}</span></div>`).join('')
         || '<p class="aide">Rien à calculer : ajoute les heures (ou le devis) avec « Modifier ».</p>'}
       ${r.factureManuel ? `<div class="ligne-calcul gris"><span>Calcul automatique</span><span>${euros(r.calcule)}</span></div>` : ''}
       <div class="ligne-calcul total"><span>${c.statut === 'ne_pas_facturer' ? 'À ne pas facturer' : r.factureManuel ? 'Montant facturé (modifié)' : 'Montant à facturer'}</span><span>${euros(r.facture)}</span></div>
-      ${r.encaisse ? `<div class="ligne-calcul"><span>Déjà encaissé</span><span class="pos">${euros(r.encaisse)}</span></div>` : ''}
-      ${r.resteAEncaisser && ['facture', 'a_facturer', 'en_cours'].includes(c.statut) && r.encaisse ? `<div class="ligne-calcul"><span>Reste à encaisser</span><span class="neg">${euros(r.resteAEncaisser)}</span></div>` : ''}
       <div class="infos-rentabilite">
         <span>Marge ${pct(r.margePct)}</span>
         ${r.mode === 'heure' && r.consommables ? `<span>Consommables : <b class="${classeMarge(r.gainConso)}">${euros(r.gainConso)}</b></span>` : ''}
@@ -159,15 +157,12 @@ export async function fiche(main, { id }) {
       ${action ? `<button class="btn principal" id="action-statut" data-statut="${action[1]}">${action[0]}</button>` : ''}
       <div class="deux-boutons">
         <a class="btn" href="#/chantier/${c.id}/modifier?frais=1">➕ Ajouter des frais</a>
-        <a class="btn" href="#/chantier/${c.id}/modifier">✏️ Heures, facture</a>
+        <a class="btn" href="#/chantier/${c.id}/modifier">✏️ Heures, montant</a>
       </div>
     </div>
 
-    <h2>Frais et paiements</h2>
-    <div class="deux-boutons">
-      <a class="btn depense" href="#/mouvement/nouveau?chantier=${c.id}&sens=depense">− Dépense</a>
-      <a class="btn gain" href="#/mouvement/nouveau?chantier=${c.id}&sens=gain">+ Paiement</a>
-    </div>
+    <h2>Frais de l'intervention</h2>
+    <a class="btn depense" href="#/mouvement/nouveau?chantier=${c.id}&sens=depense">− Dépense (avec ticket / photo)</a>
 
     <div class="rapides">
       <a class="btn" href="#/deplacement?chantier=${c.id}">🚗 Aller-retour</a>
@@ -176,7 +171,7 @@ export async function fiche(main, { id }) {
     </div>
 
     <div class="liste" style="margin-top:12px">
-      ${mvts.map(ligneMouvement).join('') || '<p class="vide">Aucun frais ni paiement pour l\'instant.<br>Ajoute tes frais réels (produits, déplacement…) avec les boutons ci-dessus.</p>'}
+      ${mvts.map(ligneMouvement).join('') || '<p class="vide">Aucun frais pour l\'instant.<br>Ajoute tes frais réels (produits, déplacement…) avec les boutons ci-dessus.</p>'}
     </div>
 
     ${avecJustif.length ? `
@@ -207,17 +202,8 @@ export async function fiche(main, { id }) {
 
   // Changement de statut (liste déroulante ou bouton d'action)
   async function changerStatut(statut, select) {
-    // Passage à "Payé" : on enregistre le paiement (date, mode) pour le livre des recettes
-    if (statut === 'paye' && r.resteAEncaisser > 0) {
-      if (select) select.value = c.statut;
-      return aller(`/paiement?chantier=${c.id}`);
-    }
+    // Factures, paiements et relances sont gérés dans Odoo : ici on note juste où en est l'intervention
     const maj = { statut };
-    if (statut === 'facture' && !c.numero_facture) {
-      const numero = prompt('Numéro de la facture (facultatif) :', '');
-      if (numero === null) { if (select) select.value = c.statut; return; }
-      if (numero.trim()) maj.numero_facture = numero.trim();
-    }
     try {
       await q(db.from('chantiers').update(maj).eq('id', id));
     } catch (err) {
@@ -422,10 +408,7 @@ export async function formulaire(main, { id, query }) {
 
         <div id="bloc-devis">
           <h3>📝 Devis</h3>
-          <div class="cote-a-cote">
-            <label>N° de devis <input name="numero_devis" value="${esc(v.numero_devis ?? '')}" placeholder="ex. D-26-011"></label>
-            ${champNombre('montant_devis', 'Montant du devis (€)', v.montant_devis)}
-          </div>
+          ${champNombre('montant_devis', 'Montant du devis (€)', v.montant_devis)}
         </div>
 
         <div class="bloc-frais" id="bloc-frais">
@@ -457,7 +440,7 @@ export async function formulaire(main, { id, query }) {
 
         <details class="plus-options" ${optionsUtilisees() ? 'open' : ''}>
           <summary>Plus d'options</summary>
-          <p class="aide">Mode de facturation, déplacement facturé, montant modifié, n° de facture, tarifs…</p>
+          <p class="aide">Mode de facturation, déplacement facturé, montant modifié, tarifs, n° Odoo…</p>
           <div class="segments trois" id="modes">
             ${Object.entries(MODES_FACTURATION).map(([k, l]) => `
               <label class="neutre"><input type="radio" name="mode_facturation" value="${k}" ${k === v.mode_facturation ? 'checked' : ''}><span>${l}</span></label>`).join('')}
@@ -471,11 +454,10 @@ export async function formulaire(main, { id, query }) {
           <label>Montant facturé (€) — vide = calcul automatique
             <input name="montant_facture" inputmode="decimal" value="${nombreFr(v.montant_facture)}" placeholder="calcul automatique">
           </label>
+          <label>Fin (si plusieurs jours) <input name="date_fin" type="date" value="${v.date_fin ?? ''}"></label>
           <div class="cote-a-cote">
-            <label>N° de facture
-              <input name="numero_facture" value="${esc(v.numero_facture ?? '')}" placeholder="ex. F-2026-012">
-            </label>
-            <label>Fin (si plusieurs jours) <input name="date_fin" type="date" value="${v.date_fin ?? ''}"></label>
+            <label>N° de devis (Odoo) <input name="numero_devis" value="${esc(v.numero_devis ?? '')}" placeholder="facultatif"></label>
+            <label>N° de facture (Odoo) <input name="numero_facture" value="${esc(v.numero_facture ?? '')}" placeholder="facultatif"></label>
           </div>
           <label>Nom de l'intervention
             <input name="nom" value="${esc(v.nom ?? '')}" placeholder="Intervention du ${dateFr(v.date_debut || aujourdhui())}">

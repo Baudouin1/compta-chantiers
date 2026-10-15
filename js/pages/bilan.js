@@ -1,4 +1,4 @@
-// Bilan de l'année : rentabilité des interventions, clients, déclaration URSSAF, dépenses
+// Bilan de l'année : rentabilité des interventions, clients, dépenses (factures et paiements : dans Odoo)
 import { db, q } from '../db.js';
 import { esc, euros, titre, totaux, classeMarge, nomCategorie, iconeCategorie, heuresFr } from '../utils.js';
 import { moyennes } from '../calculs.js';
@@ -67,22 +67,6 @@ export async function afficher(main, { query }) {
     </div>
 
     ${!mvts.length && !chantiers.length ? '<p class="vide">Rien en ' + annee + '.</p>' : `
-    <h2>Chiffre d'affaires à déclarer (URSSAF)</h2>
-    <div class="carte">
-      <p class="aide" style="margin-top:0">Micro-entreprise : on déclare le total des sommes
-        <strong>encaissées</strong> (paiements reçus), sans retirer les dépenses.</p>
-      ${[0, 1, 2, 3].map(tr => {
-        const m3 = mois.slice(tr * 3, tr * 3 + 3);
-        const total = m3.reduce((s, m) => s + m.encaisse, 0);
-        return `
-        <div class="info">
-          <span>${tr + 1}${tr ? 'e' : 'er'} trimestre · ${m3.map(m => `${m.nom} ${euros(m.encaisse)}`).join(' · ')}</span>
-          <div><strong>${euros(total)}</strong></div>
-        </div>`;
-      }).join('')}
-      <div class="info"><span>Total encaissé ${annee}</span><div><strong class="pos">${euros(caisse.gains)}</strong></div></div>
-    </div>
-
     <h2>Mois par mois</h2>
     <div class="carte">
       <div class="legende"><span><i style="background:var(--vert)"></i>Facturé</span><span><i style="background:var(--rouge)"></i>Frais réels</span><span>→ bénéfice</span></div>
@@ -125,5 +109,21 @@ export async function afficher(main, { query }) {
           <div class="jauge"><div style="width:${(montant / categories[0][1]) * 100}%"></div></div>
         </div>`).join('')}
     </div>` : ''}
+
+    ${caisse.gains ? `
+    <details class="carte replie">
+      <summary>💶 Encaissements notés dans l'appli (${euros(caisse.gains)})</summary>
+      <p class="aide">Les factures et les paiements sont suivis dans <strong>Odoo</strong> : c'est lui qui fait foi
+        pour le chiffre d'affaires à déclarer à l'URSSAF. Ici, seulement les paiements notés dans l'appli.</p>
+      ${[0, 1, 2, 3].map(tr => {
+        const m3 = mois.slice(tr * 3, tr * 3 + 3);
+        const total = m3.reduce((s, m) => s + m.encaisse, 0);
+        return `
+        <div class="info">
+          <span>${tr + 1}${tr ? 'e' : 'er'} trimestre · ${m3.map(m => `${m.nom} ${euros(m.encaisse)}`).join(' · ')}</span>
+          <div><strong>${euros(total)}</strong></div>
+        </div>`;
+      }).join('')}
+    </details>` : ''}
     `}`;
 }

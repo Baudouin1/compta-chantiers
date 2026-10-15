@@ -5,7 +5,7 @@ export const STATUTS = {
   devis: 'Devis',
   en_cours: 'En cours',
   a_facturer: 'À facturer',
-  facture: 'Facturé – en attente',
+  facture: 'Facturé',
   paye: 'Payé',
   ne_pas_facturer: 'À ne pas facturer',
 };

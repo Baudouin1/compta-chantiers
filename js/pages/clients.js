@@ -4,7 +4,7 @@ import {
   esc, euros, titre, toast, aller, surEnvoi, tenter, lireMontant, classeMarge, menuChoix, ouvrirAppli,
   nombreFr, heuresFr, MODES_FACTURATION, CHAMPS_TARIFS,
 } from '../utils.js';
-import { tarifsGeneraux, tarifsClient, listeBateaux, calculer, moyennes } from '../calculs.js';
+import { tarifsGeneraux, tarifsClient, listeBateaux, moyennes } from '../calculs.js';
 import { LIBELLES_TARIFS, lireNombre } from './reglages.js';
 import { ligneChantier } from './chantiers.js';
 
@@ -77,7 +77,6 @@ export async function fiche(main, { id }) {
   const chantiers = (c.chantiers || []).sort((a, b) =>
     (b.date_debut || b.created_at).localeCompare(a.date_debut || a.created_at));
   const moy = moyennes(chantiers);
-  const aEncaisser = chantiers.reduce((s, ch) => s + (['facture', 'a_facturer'].includes(ch.statut) ? calculer(ch).resteAEncaisser : 0), 0);
   const pct = v => (v == null ? '–' : `${Math.round(v * 100)} %`);
   const ligneTarifs = mode === 'forfait'
     ? `Forfait : ${euros(tarifs.forfait_bateau)} par bateau`
@@ -115,7 +114,6 @@ export async function fiche(main, { id }) {
       <div class="info"><span>Marge nette</span><div><strong>${pct(moy.margePct)}</strong></div></div>
       ${mode === 'forfait' ? `<div class="info"><span>Passages faits / non faits</span><div><strong class="pos">${moy.passagesOui} OUI</strong> · <strong class="neg">${moy.passagesNon} NON</strong></div></div>`
         : `<div class="info"><span>Gain / perte sur les consommables</span><div><strong class="${classeMarge(moy.gainConso)}">${euros(moy.gainConso)}</strong></div></div>`}
-      ${aEncaisser ? `<div class="info"><span>Reste à encaisser</span><div><strong class="neg">${euros(aEncaisser)}</strong></div></div>` : ''}
     </div>` : ''}
 
     <h2>Interventions</h2>

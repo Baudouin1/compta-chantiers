@@ -36,15 +36,16 @@ const RUBRIQUES = [
 
   ['🎨 Les statuts (comme les couleurs de ton Excel)', `
     <ul>
-      <li>🔴 <strong>À facturer</strong> : travail fait, facture pas encore envoyée.</li>
-      <li>🟠 <strong>Facturé – en attente</strong> : facture envoyée, pas encore payée.</li>
-      <li>🟢 <strong>Payé</strong> : l'appli te demande la date et le mode de paiement, et ajoute
-        la recette (livre des recettes, URSSAF).</li>
+      <li>🔴 <strong>À facturer</strong> : travail fait, facture pas encore faite dans Odoo.</li>
+      <li>🟠 <strong>Facturé</strong> : la facture est faite dans Odoo.</li>
+      <li>🟢 <strong>Payé</strong> : le client a payé.</li>
       <li>⚪ <strong>À ne pas facturer</strong> : geste offert, remboursement…</li>
       <li>📝 Devis et 🔧 En cours : pour les plus gros chantiers.</li>
     </ul>
     <p>Sur l'intervention, le gros bouton bleu te fait passer à l'étape suivante.
-      L'accueil te rappelle ce qu'il reste à facturer et à encaisser.</p>`],
+      L'accueil te rappelle ce qu'il reste à facturer.</p>
+    <p class="astuce">Devis, factures, paiements et relances se font dans <strong>Odoo</strong>.
+      L'appli sert à savoir <strong>ce que tu gagnes vraiment</strong> sur chaque intervention.</p>`],
 
   ['📎 Factures et tickets', `
     <p>Dans une dépense ou un gain, touche <strong>📷 Ajouter une photo ou un PDF</strong> :
@@ -82,13 +83,8 @@ const RUBRIQUES = [
       où part l'argent (par catégorie) et tes clients les plus rentables.</p>`],
 
   ['🧮 Micro-entreprise : déclaration URSSAF', `
-    <p>Dans <strong>Accueil › Voir le bilan</strong>, la rubrique <em>Chiffre d'affaires à déclarer</em>
-      donne le total encaissé par mois et par trimestre : c'est ce montant qu'on déclare à l'URSSAF.</p>
-    <p>Pour le <strong>livre des recettes</strong> : Réglages › Export CSV › « Recettes seulement ».
-      Chaque recette doit avoir son <strong>mode de paiement</strong> (virement, chèque, espèces…) :
-      l'appli le demande à chaque gain. Mets le numéro de facture dans la description.</p>
-    <p class="astuce">Pense à bien saisir chaque paiement reçu (facture, acompte) avec la <strong>date
-      où l'argent est arrivé</strong>.</p>`],
+    <p>Le chiffre d'affaires à déclarer (les sommes encaissées) se prend dans <strong>Odoo</strong>,
+      là où sont tes factures et tes paiements.</p>`],
 
   ['📤 Envoyer au comptable', `
     <p><strong>Réglages › Export CSV</strong> : choisis la période (ex. « Mois dernier »),

@@ -1,6 +1,6 @@
 // Écran d'accueil : le mois en cours, ce qu'il reste à facturer / encaisser, dernières interventions
 import { db, q } from '../db.js';
-import { esc, euros, dateFr, titre, totaux, heuresFr, classeMarge } from '../utils.js';
+import { esc, euros, dateFr, titre, heuresFr, classeMarge } from '../utils.js';
 import { calculer, moyennes } from '../calculs.js';
 import { ligneChantier, CHAMPS_LISTE } from './chantiers.js';
 
@@ -13,8 +13,7 @@ export async function afficher(main) {
   const debutSuivant = m === 12 ? `${a + 1}-01-01` : `${a}-${String(m + 1).padStart(2, '0')}-01`;
   const nomMois = maintenant.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
 
-  const [mvtsMois, chantiers, clients] = await Promise.all([
-    q(db.from('mouvements').select('sens, montant').gte('date', debutMois).lt('date', debutSuivant)),
+  const [chantiers, clients] = await Promise.all([
     q(db.from('chantiers').select(CHAMPS_LISTE)
       .order('date_debut', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false })),
     q(db.from('clients').select('id').limit(1)),
@@ -23,12 +22,10 @@ export async function afficher(main) {
   // Interventions du mois (comme une page de l'ancien Excel)
   const duMois = chantiers.filter(c => (c.date_debut || '') >= debutMois && (c.date_debut || '') < debutSuivant);
   const mois = moyennes(duMois);
-  const encaisse = totaux(mvtsMois);
 
-  // À facturer / en attente de règlement
+  // Travail fait mais pas encore facturé dans Odoo (les paiements et relances, c'est Odoo)
   const somme = (liste, k) => liste.reduce((s, c) => s + calculer(c)[k], 0);
   const aFacturer = chantiers.filter(c => c.statut === 'a_facturer');
-  const enAttente = chantiers.filter(c => c.statut === 'facture');
 
   // Interventions regroupées par client (le client le plus récent en premier)
   const parClient = {};
@@ -41,7 +38,6 @@ export async function afficher(main) {
     moy: moyennes(g.chantiers),
     derniere: g.chantiers.map(c => c.date_debut || '').sort().pop(),
     aFacturer: g.chantiers.filter(c => c.statut === 'a_facturer').length,
-    enAttente: g.chantiers.filter(c => c.statut === 'facture').length,
   })).sort((a, b) => (b.derniere || '').localeCompare(a.derniere || ''));
 
   // Première utilisation : petit guide de démarrage
@@ -69,25 +65,20 @@ export async function afficher(main) {
         <div><span>Heures</span><strong>${heuresFr(mois.heures)}</strong></div>
         <div><span>Taux horaire net</span><strong>${mois.tauxHoraireNet != null ? euros(mois.tauxHoraireNet) + '/h' : '–'}</strong></div>
       </div>
-      <a class="lien-bilan" href="#/bilan">💶 Encaissé ce mois : ${euros(encaisse.gains)} · 📊 Voir le bilan ›</a>
+      <a class="lien-bilan" href="#/bilan">📊 Voir le bilan de l'année ›</a>
     </div>
 
     <a class="btn principal grand-bouton" href="#/chantier/nouveau">+ Nouvelle intervention</a>
 
     ${aFacturer.length ? `<a class="alerte rouge" href="#/chantiers?statut=a_facturer">
-      🔴 <span><strong>${aFacturer.length} à facturer</strong> · ${euros(somme(aFacturer, 'facture'))}</span> ›</a>` : ''}
-    ${enAttente.length ? `<a class="alerte orange" href="#/chantiers?statut=facture">
-      🟠 <span><strong>${enAttente.length} en attente de règlement</strong> · ${euros(somme(enAttente, 'resteAEncaisser'))}</span> ›</a>` : ''}
+      🔴 <span><strong>${aFacturer.length} à facturer dans Odoo</strong> · ${euros(somme(aFacturer, 'facture'))}</span> ›</a>` : ''}
 
     <h2>Frais généraux</h2>
-    <div class="deux-boutons">
-      <a class="btn depense" href="#/mouvement/nouveau?sens=depense">− Dépense</a>
-      <a class="btn gain" href="#/mouvement/nouveau?sens=gain">+ Gain</a>
-    </div>
+    <a class="btn depense" href="#/mouvement/nouveau?sens=depense">− Dépense</a>
     <div class="liste">
       <a class="ligne" href="#/frais">
         <span class="pastille">🧾</span>
-        <div><strong>Frais généraux</strong><small>Dépenses et gains hors intervention (assurance, outillage…)</small></div>
+        <div><strong>Frais généraux</strong><small>Dépenses hors intervention (assurance, outillage…)</small></div>
         <span class="fleche">›</span>
       </a>
     </div>
@@ -99,7 +90,7 @@ export async function afficher(main) {
           <div>
             <strong>${esc(g.client.nom)}</strong>
             <small>${g.chantiers.length} intervention(s) · dernière le ${dateFr(g.derniere)}
-              ${g.aFacturer ? ` · 🔴 ${g.aFacturer}` : ''}${g.enAttente ? ` · 🟠 ${g.enAttente}` : ''}</small>
+              ${g.aFacturer ? ` · 🔴 ${g.aFacturer}` : ''}</small>
           </div>
           <span class="montant ${classeMarge(g.moy.benefice)}">${euros(g.moy.benefice)}</span>
         </summary>

@@ -490,3 +490,9 @@ label.case.petite input { width: 20px; height: 20px; min-height: 20px; }
   border-radius: 10px; background: var(--fond); border: 2px solid transparent; cursor: pointer;
 }
 .choix-smiley input:checked + span { border-color: var(--ciel); background: var(--ciel-clair); }
+
+/* Rubrique repliée (infos secondaires, ex. encaissements : c'est Odoo qui fait foi) */
+details.replie summary { cursor: pointer; font-weight: 600; color: var(--gris); list-style: none; }
+details.replie summary::-webkit-details-marker { display: none; }
+details.replie summary::after { content: ' ›'; }
+details.replie[open] summary { margin-bottom: 8px; }
