@@ -188,7 +188,6 @@ label.case input { width: 26px; min-height: 26px; height: 26px; margin: 0; -webk
 }
 #bandeau-install p { margin: 0; flex: 1; }
 #bandeau-install button { background: none; border: none; font-size: 20px; padding: 0 4px; color: var(--gris); }
-.icone-partage { vertical-align: -3px; }
 
 /* ---------- Message temporaire ---------- */
 .toast {
