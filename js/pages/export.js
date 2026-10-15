@@ -75,7 +75,7 @@ export function fabriquerCSV(mouvements) {
     return /[";\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
   };
   const entetes = ['Date', 'Chantier', 'Statut chantier', 'Client', 'Bateau', 'Type', 'Catégorie',
-    'Description', 'Sous-traitant', 'Dépense (€)', 'Recette (€)', 'Refacturable', 'Note'];
+    'Description', 'Sous-traitant', 'Dépense (€)', 'Recette (€)', 'Refacturable', 'Justificatif', 'Note'];
   const lignes = mouvements.map(m => [
     dateFr(m.date),
     m.chantiers?.nom ?? 'Frais généraux',
@@ -89,6 +89,7 @@ export function fabriquerCSV(mouvements) {
     m.sens === 'depense' ? nombre(m.montant) : '',
     m.sens === 'gain' ? nombre(m.montant) : '',
     m.sens === 'depense' ? (m.refacturable ? 'Oui' : 'Non') : '',
+    m.photo_path ? 'Oui' : 'Non',
     m.note,
   ]);
   // "﻿" au début : pour qu'Excel affiche bien les accents

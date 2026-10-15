@@ -56,7 +56,7 @@ export async function fiche(main, { id }) {
 
   // Boutons d'action en un toucher
   const tel = (c.telephone || '').replace(/[^\d+]/g, '');
-  const lieu = c.port || c.adresse;
+  const lieu = c.adresse || c.port; // l'itinéraire va à l'adresse, sinon au port
   const actions = [
     tel && ['📞', 'Appeler', `tel:${tel}`],
     tel && ['💬', 'Message', `sms:${tel}`],

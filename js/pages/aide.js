@@ -23,6 +23,16 @@ const RUBRIQUES = [
       <li>Pour <strong>corriger ou supprimer</strong> un mouvement, touche-le dans la liste.</li>
     </ul>`],
 
+  ['📎 Factures et tickets', `
+    <p>Dans une dépense ou un gain, touche <strong>📷 Ajouter une photo ou un PDF</strong> :
+      prends le ticket en photo, ou choisis un PDF (reçu par mail, dans Fichiers…).</p>
+    <ul>
+      <li>Les photos sont <strong>allégées automatiquement</strong> (≈ 250 Ko) : assez pour en stocker des milliers.</li>
+      <li>Les PDF sont limités à <strong>5 Mo</strong>. Si c'est trop lourd, prends plutôt une photo du document.</li>
+      <li>Sur la page du chantier, la rubrique <strong>📎 Factures et tickets</strong> les regroupe tous.</li>
+      <li>Place utilisée : en bas de <strong>Réglages</strong>.</li>
+    </ul>`],
+
   ['⚡ Boutons rapides', `
     <p><strong>🚗 Aller-retour</strong> : crée la dépense de déplacement en 2 touchers avec le trajet du client.
       Tu peux choisir un autre trajet enregistré ou en taper un nouveau (et l'enregistrer pour la prochaine fois).</p>

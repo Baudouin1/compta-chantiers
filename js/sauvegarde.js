@@ -42,6 +42,7 @@ export async function fabriquerSauvegarde() {
       'Dépense (€)': m.sens === 'depense' ? nombre(m.montant) : '',
       'Recette (€)': m.sens === 'gain' ? nombre(m.montant) : '',
       'Refacturable': m.sens === 'depense' ? (m.refacturable ? 'Oui' : 'Non') : '',
+      'Justificatif': m.photo_path ? 'Oui' : 'Non',
       'Note': m.note ?? '',
       'id': m.id, 'id chantier': m.chantier_id ?? '', 'code catégorie': m.categorie,
     })),

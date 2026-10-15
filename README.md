@@ -16,6 +16,8 @@ Petite appli (PWA) pour suivre les dépenses et les gains par chantier.
 | `js/pages/aide.js` | Le guide d'utilisation : facile à compléter (liste RUBRIQUES) |
 | `api/ics.js` | Fabrique l'événement pour le calendrier de l'iPhone (fonction Vercel) |
 | `supabase/schema.sql` | Création des tables (à coller dans Supabase > SQL Editor) |
+| `supabase/justificatifs.sql` | Stockage des photos et PDF de factures (à coller une fois dans SQL Editor) |
+| `js/justificatifs.js` | Compression des photos, envoi et ouverture des justificatifs |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Ce qui rend l'appli installable |
 | `lib/supabase.js` | Bibliothèque Supabase (ne pas modifier) |
 | `lib/xlsx.mini.min.js` | Bibliothèque Excel pour la sauvegarde (ne pas modifier) |

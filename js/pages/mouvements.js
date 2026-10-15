@@ -1,6 +1,7 @@
 // Formulaire d'ajout / modification d'un mouvement (dépense ou gain)
 import { db, q } from '../db.js';
 import { esc, titre, toast, aller, surEnvoi, tenter, dateValide, lireMontant, aujourdhui, iconeCategorie, CATEGORIES } from '../utils.js';
+import * as justif from '../justificatifs.js';
 
 export async function formulaire(main, { id, query }) {
   const [m, chantiers] = await Promise.all([
@@ -63,6 +64,11 @@ export async function formulaire(main, { id, query }) {
         <textarea name="note" rows="2">${esc(m.note ?? '')}</textarea>
       </label>
 
+      <div class="justif">
+        <span class="titre-champ">📎 Facture ou ticket</span>
+        <div id="justif-etat"></div>
+      </div>
+
       <button class="btn principal" type="submit">Enregistrer</button>
     </form>
     ${id ? '<button class="btn danger" id="supprimer">Supprimer ce mouvement</button>' : ''}`;
@@ -85,6 +91,50 @@ export async function formulaire(main, { id, query }) {
   majChamps();
   if (!id) form.montant.focus();
 
+  // ---------- Justificatif (photo ou PDF) ----------
+  let nouveauFichier = null;   // fichier choisi, prêt à être envoyé
+  let retirer = false;         // l'utilisateur veut enlever le justificatif actuel
+  const zoneJustif = main.querySelector('#justif-etat');
+
+  function dessinerJustif() {
+    const actuel = !retirer && m.photo_path;
+    let html = '';
+    if (nouveauFichier) {
+      html = `<div class="justif-pret">
+          ${nouveauFichier.type === 'application/pdf' ? '<span class="vignette">📄</span>' : `<img class="vignette" src="${nouveauFichier.apercu}" alt="">`}
+          <div><strong>Prêt à être enregistré</strong><small>${(nouveauFichier.blob.size / 1024).toFixed(0)} Ko</small></div>
+          <button type="button" class="btn lien" id="annuler-justif">Annuler</button>
+        </div>`;
+    } else if (actuel) {
+      html = `<div class="justif-pret">
+          <span class="vignette">${justif.estPdf(actuel) ? '📄' : '🖼️'}</span>
+          <button type="button" class="btn lien" id="voir-justif">Voir le justificatif</button>
+          <button type="button" class="btn lien danger" id="retirer-justif">Retirer</button>
+        </div>`;
+    }
+    html += `<label class="btn">
+        ${actuel || nouveauFichier ? '🔄 Remplacer' : '📷 Ajouter une photo ou un PDF'}
+        <input type="file" accept="image/*,application/pdf" hidden id="choix-justif">
+      </label>`;
+    zoneJustif.innerHTML = html;
+
+    zoneJustif.querySelector('#choix-justif').onchange = e => tenter(async () => {
+      const fichier = e.target.files[0];
+      if (!fichier) return;
+      zoneJustif.insertAdjacentHTML('afterbegin', '<p class="aide">Préparation du fichier…</p>');
+      try {
+        nouveauFichier = await justif.preparerFichier(fichier);
+        nouveauFichier.apercu = URL.createObjectURL(nouveauFichier.blob);
+      } finally {
+        dessinerJustif();
+      }
+    });
+    zoneJustif.querySelector('#annuler-justif')?.addEventListener('click', () => { nouveauFichier = null; dessinerJustif(); });
+    zoneJustif.querySelector('#voir-justif')?.addEventListener('click', () => tenter(() => justif.ouvrir(m.photo_path)));
+    zoneJustif.querySelector('#retirer-justif')?.addEventListener('click', () => { retirer = true; dessinerJustif(); });
+  }
+  dessinerJustif();
+
   surEnvoi(form, async data => {
     data.montant = lireMontant(data.montant);
     if (!data.montant) throw new Error('Montant invalide (ex. 45 ou 45,90).');
@@ -96,8 +146,23 @@ export async function formulaire(main, { id, query }) {
     if (data.sens === 'gain') data.refacturable = false;
     if (data.categorie !== 'sous_traitance') data.sous_traitant = null;
 
-    if (id) await q(db.from('mouvements').update(data).eq('id', id));
-    else await q(db.from('mouvements').insert(data));
+    const enregistre = id
+      ? await q(db.from('mouvements').update(data).eq('id', id).select().single())
+      : await q(db.from('mouvements').insert(data).select().single());
+
+    // Le justificatif est envoyé après le mouvement (il a besoin de son numéro)
+    try {
+      if (nouveauFichier) {
+        const chemin = await justif.envoyer(nouveauFichier, enregistre.id);
+        await q(db.from('mouvements').update({ photo_path: chemin }).eq('id', enregistre.id));
+        await justif.supprimer(m.photo_path); // l'ancien fichier, s'il y en avait un
+      } else if (retirer && m.photo_path) {
+        await q(db.from('mouvements').update({ photo_path: null }).eq('id', enregistre.id));
+        await justif.supprimer(m.photo_path);
+      }
+    } catch (err) {
+      alert(`Le mouvement est enregistré, mais pas le justificatif : ${err.message}`);
+    }
     toast('Enregistré');
     aller(data.chantier_id ? `/chantier/${data.chantier_id}` : '/frais');
   });
@@ -106,6 +171,7 @@ export async function formulaire(main, { id, query }) {
   if (suppr) suppr.onclick = () => tenter(async () => {
     if (!confirm('Supprimer ce mouvement ?')) return;
     await q(db.from('mouvements').delete().eq('id', id));
+    await justif.supprimer(m.photo_path).catch(() => {});
     toast('Supprimé');
     aller(retour);
   });

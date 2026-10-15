@@ -5,6 +5,7 @@ import {
 } from '../utils.js';
 import { partagerFichier } from './export.js';
 import { fabriquerSauvegarde } from '../sauvegarde.js';
+import { espaceUtilise } from '../justificatifs.js';
 
 export async function afficher(main) {
   titre('Réglages');
@@ -51,6 +52,7 @@ export async function afficher(main) {
     </div>
 
     <div class="carte">
+      <div class="info"><span>Factures et tickets stockés</span><div id="espace">…</div></div>
       <div class="info"><span>Connecté avec</span><div>${esc(data.user?.email)}</div></div>
     </div>
     <button class="btn danger" id="deconnexion">Se déconnecter</button>`;
@@ -75,6 +77,13 @@ export async function afficher(main) {
         fichier = await fabriquerSauvegarde();
       } catch (err) {
         boutonPreparer();
+
+  // Place prise par les justificatifs (offre gratuite : 1 Go)
+  espaceUtilise().then(octets => {
+    main.querySelector('#espace').textContent = octets == null
+      ? 'Pas encore activé'
+      : `${(octets / 1048576).toFixed(1).replace('.', ',')} Mo utilisés sur 1 Go (${(octets / 1073741824 * 100).toFixed(1).replace('.', ',')} %)`;
+  });
         throw err;
       }
       zone.innerHTML = `<button class="btn gain" id="envoyer-sauvegarde">📤 Envoyer la sauvegarde (${fichier.nb} éléments)</button>`;
@@ -84,6 +93,13 @@ export async function afficher(main) {
     });
   };
   boutonPreparer();
+
+  // Place prise par les justificatifs (offre gratuite : 1 Go)
+  espaceUtilise().then(octets => {
+    main.querySelector('#espace').textContent = octets == null
+      ? 'Pas encore activé'
+      : `${(octets / 1048576).toFixed(1).replace('.', ',')} Mo utilisés sur 1 Go (${(octets / 1073741824 * 100).toFixed(1).replace('.', ',')} %)`;
+  });
 
   main.querySelector('#deconnexion').onclick = async () => {
     if (!confirm('Se déconnecter ?')) return;

@@ -4,6 +4,7 @@ import {
   esc, euros, dateFr, titre, toast, aller, surEnvoi, tenter, dateValide, totaux, classeMarge, nomCategorie, iconeCategorie, STATUTS,
 } from '../utils.js';
 import { partagerCSV } from './export.js';
+import * as justif from '../justificatifs.js';
 
 let filtreStatut = 'en_cours';
 
@@ -74,6 +75,7 @@ export async function fiche(main, { id }) {
   titre(c.nom, '/chantiers');
   const t = totaux(c.mouvements);
   const mvts = c.mouvements.sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at));
+  const avecJustif = mvts.filter(m => m.photo_path);
 
   main.innerHTML = `
     <div class="carte">
@@ -115,11 +117,25 @@ export async function fiche(main, { id }) {
       ${mvts.map(ligneMouvement).join('') || '<p class="vide">Aucun mouvement pour l\'instant.<br>Ajoute une dépense ou un gain avec les boutons ci-dessus.</p>'}
     </div>
 
+    ${avecJustif.length ? `
+    <h2>📎 Factures et tickets (${avecJustif.length})</h2>
+    <div class="carte">
+      ${avecJustif.map(m => `
+        <div class="info justif-ligne">
+          <span>${dateFr(m.date)} · ${esc(nomCategorie(m.sens, m.categorie))} · ${euros(m.montant)}</span>
+          <button class="btn lien" data-justif="${esc(m.photo_path)}">
+            ${justif.estPdf(m.photo_path) ? '📄' : '🖼️'} ${esc(m.description || 'Voir')}
+          </button>
+        </div>`).join('')}
+    </div>` : ''}
+
     <div class="actions">
       <a class="btn" href="#/calendrier?chantier=${c.id}"><span>📅</span>Ajouter au calendrier</a>
       <button class="btn" id="export" ${mvts.length ? '' : 'disabled'}><span>📄</span>Exporter (CSV)</button>
     </div>
     <a class="btn lien" href="#/chantier/${c.id}/modifier">✏️ Modifier ou supprimer le chantier</a>`;
+
+  main.querySelectorAll('[data-justif]').forEach(b => b.onclick = () => tenter(() => justif.ouvrir(b.dataset.justif)));
 
   const exp = main.querySelector('#export');
   if (mvts.length) exp.onclick = () => tenter(() => {
@@ -152,6 +168,7 @@ export function ligneMouvement(m) {
         <strong>${esc(m.description || nomCategorie(m.sens, m.categorie))}</strong>
         <small>${dateFr(m.date)} · ${esc(nomCategorie(m.sens, m.categorie))}${m.sous_traitant ? ' · ' + esc(m.sous_traitant) : ''}</small>
         ${m.refacturable ? '<span class="badge">À refacturer</span>' : ''}
+        ${m.photo_path ? '<span class="badge justif-badge">📎 Justificatif</span>' : ''}
       </div>
       <div class="montant ${m.sens === 'gain' ? 'pos' : 'neg'}">${signe} ${euros(m.montant)}</div>
     </a>`;
@@ -226,8 +243,11 @@ export async function formulaire(main, { id, query }) {
 
   const suppr = main.querySelector('#supprimer');
   if (suppr) suppr.onclick = () => tenter(async () => {
-    if (!confirm('Supprimer ce chantier ET tous ses mouvements ?')) return;
+    if (!confirm('Supprimer ce chantier ET tous ses mouvements (et leurs justificatifs) ?')) return;
+    const fichiers = (await q(db.from('mouvements').select('photo_path').eq('chantier_id', id)))
+      .map(m => m.photo_path).filter(Boolean);
     await q(db.from('chantiers').delete().eq('id', id));
+    if (fichiers.length) await db.storage.from('justificatifs').remove(fichiers);
     toast('Chantier supprimé');
     aller('/chantiers');
   });
