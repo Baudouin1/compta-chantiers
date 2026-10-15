@@ -1,6 +1,11 @@
 // Écrans Clients : liste, fiche, formulaire
 import { db, q } from '../db.js';
-import { esc, euros, titre, toast, aller, surEnvoi, tenter, lireMontant, totaux, classeMarge, menuChoix, ouvrirAppli } from '../utils.js';
+import {
+  esc, euros, titre, toast, aller, surEnvoi, tenter, lireMontant, classeMarge, menuChoix, ouvrirAppli,
+  nombreFr, heuresFr, MODES_FACTURATION, CHAMPS_TARIFS,
+} from '../utils.js';
+import { tarifsGeneraux, tarifsClient, listeBateaux, calculer, moyennes } from '../calculs.js';
+import { LIBELLES_TARIFS, lireNombre } from './reglages.js';
 import { ligneChantier } from './chantiers.js';
 
 export async function liste(main) {
@@ -36,9 +41,13 @@ function initiales(nom) {
 }
 
 export async function fiche(main, { id }) {
-  const c = await q(db.from('clients')
-    .select('*, chantiers(id, nom, statut, created_at, mouvements(sens, montant))').eq('id', id).single());
+  const [c, generaux] = await Promise.all([
+    q(db.from('clients').select('*, chantiers(*, mouvements(sens, montant, refacturable))').eq('id', id).single()),
+    tarifsGeneraux(),
+  ]);
   titre(c.nom, '/clients');
+  const tarifs = tarifsClient(c, generaux);
+  const mode = c.mode_facturation || 'heure';
 
   const trajet = c.trajet_destination
     ? `${esc(c.trajet_destination)}${c.trajet_km != null ? ` — ${String(c.trajet_km).replace('.', ',')} km aller-retour` : ''}`
@@ -48,7 +57,7 @@ export async function fiche(main, { id }) {
     ['Téléphone', c.telephone && `<a href="tel:${esc(c.telephone)}">${esc(c.telephone)}</a>`],
     ['Email', c.email && `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`],
     ['Adresse', esc(c.adresse)],
-    ['Bateau', esc(c.bateau)],
+    [listeBateaux(c).length > 1 ? 'Bateaux' : 'Bateau', esc(c.bateau)],
     ['Port / emplacement', esc(c.port)],
     ['Trajet par défaut', trajet],
     ['Notes', esc(c.notes)],
@@ -65,8 +74,15 @@ export async function fiche(main, { id }) {
     ['📅', 'Rendez-vous', `#/calendrier?client=${c.id}`],
   ].filter(Boolean);
 
-  const chantiers = (c.chantiers || []).sort((a, b) => b.created_at.localeCompare(a.created_at));
-  const t = totaux(chantiers.flatMap(ch => ch.mouvements || []));
+  const chantiers = (c.chantiers || []).sort((a, b) =>
+    (b.date_debut || b.created_at).localeCompare(a.date_debut || a.created_at));
+  const moy = moyennes(chantiers);
+  const aEncaisser = chantiers.reduce((s, ch) => s + (['facture', 'a_facturer'].includes(ch.statut) ? calculer(ch).resteAEncaisser : 0), 0);
+  const pct = v => (v == null ? '–' : `${Math.round(v * 100)} %`);
+  const ligneTarifs = mode === 'forfait'
+    ? `Forfait : ${euros(tarifs.forfait_bateau)} par bateau`
+    : mode === 'devis' ? 'Sur devis'
+    : `${euros(tarifs.taux_nettoyage)}/h nettoyage · ${euros(tarifs.taux_entretien)}/h entretien · conso ${nombreFr(tarifs.conso_pct)} % (min ${euros(tarifs.conso_min)})`;
 
   main.innerHTML = `
     <div class="actions" style="grid-template-columns:repeat(${Math.min(actions.length, 3)},1fr);margin:0 0 12px">
@@ -78,17 +94,33 @@ export async function fiche(main, { id }) {
         || '<p class="vide">Pas d\'informations.</p>'}
     </div>
 
-    ${chantiers.length ? `
-    <div class="totaux">
-      <div><span>Chiffre d'affaires</span><strong class="pos">${euros(t.gains)}</strong></div>
-      <div><span>Dépenses</span><strong class="neg">${euros(t.depenses)}</strong></div>
-      <div><span>Marge</span><strong class="${classeMarge(t.marge)}">${euros(t.marge)}</strong></div>
+    <div class="carte tarifs-client">
+      <span>${esc(MODES_FACTURATION[mode])}</span>
+      <strong>${ligneTarifs}</strong>
+    </div>
+
+    ${moy.nombre ? `
+    <div class="resume">
+      <div class="etiquette">Bénéfice net · ${moy.nombre} intervention(s)</div>
+      <div class="grand">${euros(moy.benefice)}</div>
+      <div class="details">
+        <div><span>Facturé</span><strong>${euros(moy.facture)}</strong></div>
+        <div><span>Frais réels</span><strong>${euros(moy.fraisReels)}</strong></div>
+        <div><span>Taux horaire net</span><strong>${moy.tauxHoraireNet != null ? euros(moy.tauxHoraireNet) + '/h' : '–'}</strong></div>
+        <div><span>Heures</span><strong>${heuresFr(moy.heures)}</strong></div>
+      </div>
+    </div>
+    <div class="carte">
+      <div class="info"><span>Bénéfice net moyen par intervention</span><div><strong>${euros(moy.beneficeMoyen)}</strong></div></div>
+      <div class="info"><span>Marge nette</span><div><strong>${pct(moy.margePct)}</strong></div></div>
+      <div class="info"><span>Gain / perte sur les consommables</span><div><strong class="${classeMarge(moy.gainConso)}">${euros(moy.gainConso)}</strong></div></div>
+      ${aEncaisser ? `<div class="info"><span>Reste à encaisser</span><div><strong class="neg">${euros(aEncaisser)}</strong></div></div>` : ''}
     </div>` : ''}
 
-    <h2>Chantiers</h2>
-    <a class="btn principal" href="#/chantier/nouveau?client=${c.id}">+ Nouveau chantier</a>
+    <h2>Interventions</h2>
+    <a class="btn principal" href="#/chantier/nouveau?client=${c.id}">+ Nouvelle intervention</a>
     <div class="liste">
-      ${chantiers.map(ligneChantier).join('') || '<p class="vide">Aucun chantier.</p>'}
+      ${chantiers.map(ch => ligneChantier(ch, { sansClient: true })).join('') || '<p class="vide">Aucune intervention.</p>'}
     </div>
     <a class="btn lien" href="#/client/${c.id}/modifier">✏️ Modifier ou supprimer la fiche</a>`;
 
@@ -105,7 +137,11 @@ export async function fiche(main, { id }) {
 }
 
 export async function formulaire(main, { id }) {
-  const c = id ? await q(db.from('clients').select('*').eq('id', id).single()) : {};
+  const [c, generaux] = await Promise.all([
+    id ? q(db.from('clients').select('*').eq('id', id).single()) : { mode_facturation: 'heure' },
+    tarifsGeneraux(),
+  ]);
+  const tarifs = tarifsClient(c, generaux);
   titre(id ? 'Modifier le client' : 'Nouveau client', id ? `/client/${id}` : '/clients');
 
   const champ = (nom, label, type = 'text', extra = '') => `
@@ -119,11 +155,31 @@ export async function formulaire(main, { id }) {
       ${champ('telephone', 'Téléphone', 'tel')}
       ${champ('email', 'Email', 'email')}
       ${champ('adresse', 'Adresse')}
-      ${champ('bateau', 'Nom du bateau')}
+      ${champ('bateau', 'Bateau(x) — sépare par une virgule s\'il y en a plusieurs')}
       ${champ('port', 'Port / emplacement')}
       <label>Notes
         <textarea name="notes" rows="3">${esc(c.notes ?? '')}</textarea>
       </label>
+
+      <h3>Facturation</h3>
+      <label>Mode de facturation
+        <select name="mode_facturation" id="mode-facturation">
+          ${Object.entries(MODES_FACTURATION).map(([k, v]) =>
+            `<option value="${k}" ${k === (c.mode_facturation || 'heure') ? 'selected' : ''}>${v}</option>`).join('')}
+        </select>
+      </label>
+      <label id="champ-forfait">Forfait par bateau et par passage (€)
+        <input name="forfait_bateau" inputmode="decimal" value="${nombreFr(c.forfait_bateau)}" placeholder="ex. 107">
+      </label>
+      <details class="tarifs-detail" ${CHAMPS_TARIFS.some(k => c[k] != null) ? 'open' : ''}>
+        <summary>Tarifs de ce client ${CHAMPS_TARIFS.some(k => c[k] != null) ? '(personnalisés)' : '(tarifs généraux)'}</summary>
+        <p class="aide">Préremplis avec tes tarifs généraux. Change-les seulement si ce client a un prix différent.</p>
+        ${LIBELLES_TARIFS.map(([k, label, unite]) => `
+          <label>${label} (${unite})
+            <input name="${k}" inputmode="decimal" value="${nombreFr(tarifs[k])}">
+            <small class="aide">Tarif général : ${nombreFr(generaux[k])} ${unite}</small>
+          </label>`).join('')}
+      </details>
 
       <h3>Trajet par défaut</h3>
       <p class="aide">Utilisé par le bouton « Aller-retour ». Le coût au km se règle dans Réglages.</p>
@@ -133,6 +189,11 @@ export async function formulaire(main, { id }) {
       <button class="btn principal" type="submit">Enregistrer</button>
     </form>
     ${id ? '<button class="btn danger" id="supprimer">Supprimer ce client</button>' : ''}`;
+
+  const selMode = main.querySelector('#mode-facturation');
+  const majMode = () => { main.querySelector('#champ-forfait').hidden = selMode.value !== 'forfait'; };
+  selMode.onchange = majMode;
+  majMode();
 
   surEnvoi(main.querySelector('#form-client'), async data => {
     if (!data.nom) throw new Error('Le nom est obligatoire.');
@@ -145,6 +206,17 @@ export async function formulaire(main, { id }) {
       if (!data.trajet_km || data.trajet_km > 5000) throw new Error('Distance invalide (en km, ex. 42 ou 42,5).');
     }
     if (data.trajet_km && !data.trajet_destination) data.trajet_destination = data.port || 'Aller-retour';
+
+    // Forfait
+    data.forfait_bateau = data.forfait_bateau ? lireNombre(data.forfait_bateau) : null;
+    if (data.mode_facturation === 'forfait' && !data.forfait_bateau) throw new Error('Indique le montant du forfait par bateau.');
+    // Tarifs : on ne garde que ceux qui diffèrent des tarifs généraux
+    for (const k of CHAMPS_TARIFS) {
+      if (!data[k]) { data[k] = null; continue; }
+      const v = lireNombre(data[k]);
+      if (v == null) throw new Error('Un des tarifs n\'est pas un nombre valide (ex. 37 ou 17,16).');
+      data[k] = v === Number(generaux[k]) ? null : v;
+    }
 
     const res = id
       ? await q(db.from('clients').update(data).eq('id', id).select().single())

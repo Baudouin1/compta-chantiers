@@ -65,7 +65,7 @@ export async function formulaire(main, { id, query }) {
 
       <label class="case" id="champ-refacturable">
         <input type="checkbox" name="refacturable" ${m.refacturable ? 'checked' : ''}>
-        Refacturable au client
+        Refacturé au client (produit revendu, ajouté à la facture avec ta marge)
       </label>
 
       <label>Note

@@ -1,11 +1,35 @@
 // Petites fonctions utilisées partout
 
+// Statuts d'un chantier / d'une intervention (mêmes couleurs que l'ancien Excel)
 export const STATUTS = {
   devis: 'Devis',
   en_cours: 'En cours',
-  termine: 'Terminé',
+  a_facturer: 'À facturer',
+  facture: 'Facturé – en attente',
   paye: 'Payé',
+  ne_pas_facturer: 'À ne pas facturer',
 };
+
+export const PASTILLES_STATUT = {
+  devis: '📝', en_cours: '🔧', a_facturer: '🔴', facture: '🟠', paye: '🟢', ne_pas_facturer: '⚪',
+};
+
+export const MODES_FACTURATION = {
+  heure: "À l'heure",
+  forfait: 'Forfait par bateau',
+  devis: 'Sur devis',
+};
+
+// Tarifs par défaut si rien n'est encore réglé (ceux de l'ancien Excel)
+export const TARIFS_DEFAUT = {
+  taux_nettoyage: 37,
+  taux_entretien: 48,
+  conso_pct: 10,
+  conso_min: 17.16,
+  prix_km_facture: 0.5,
+  marge_produits: 0,
+};
+export const CHAMPS_TARIFS = Object.keys(TARIFS_DEFAUT);
 
 export const CATEGORIES = {
   depense: {
@@ -72,6 +96,31 @@ export function lireMontant(texte) {
   return Number(t);
 }
 
+// 2.5 -> "2,5" (vide si pas de valeur)
+export function nombreFr(n) {
+  if (n == null || n === '') return '';
+  return String(Math.round(Number(n) * 100) / 100).replace('.', ',');
+}
+
+// Heures décimales -> "2 h 30"
+export function heuresFr(h) {
+  const total = Math.round((Number(h) || 0) * 60);
+  const hh = Math.floor(total / 60), mm = total % 60;
+  return mm ? `${hh} h ${String(mm).padStart(2, '0')}` : `${hh} h`;
+}
+
+// Lit un nombre d'heures : "2,5", "2.5", "2h30", "2:30", "45min" -> heures décimales (null si invalide)
+export function lireHeures(texte) {
+  const t = String(texte ?? '').trim().toLowerCase().replace(/\s/g, '');
+  if (!t) return null;
+  let m = t.match(/^(\d+)(?:h|:)(\d{1,2})?(?:min)?$/);
+  if (m) return Math.round((Number(m[1]) + Number(m[2] || 0) / 60) * 100) / 100;
+  m = t.match(/^(\d+)min$/);
+  if (m) return Math.round(Number(m[1]) / 60 * 100) / 100;
+  m = t.replace(',', '.').match(/^\d+(\.\d{1,3})?$/);
+  return m ? Number(m[0]) : null;
+}
+
 // Protège le texte avant de l'afficher dans la page
 export function esc(texte) {
   return String(texte ?? '').replace(/[&<>"']/g, c => ({
@@ -135,7 +184,7 @@ export const cheminActuel = () => location.hash.slice(1) || '/';
 // Écrans de saisie (la barre du bas y est cachée, et on ne revient pas dessus après l'enregistrement)
 export function estFormulaire(chemin) {
   return /\/(nouveau|modifier)$/.test(chemin)
-    || /^\/(mouvement|deplacement|calendrier|export|reglages\/(trajet|bouton)\/)/.test(chemin);
+    || /^\/(mouvement|deplacement|calendrier|export|paiement|reglages\/(tarifs|trajet\/|bouton\/))/.test(chemin);
 }
 
 export function demarrerNavigation(fn) {
@@ -210,6 +259,10 @@ export function titre(texte, retour = null) {
 export function erreurLisible(err) {
   const m = err?.message || String(err);
   if (/failed to fetch|network|load failed/i.test(m)) return 'Pas de connexion internet. Réessaie quand tu as du réseau.';
+  if (/column|schema cache/i.test(m) && /(heures_|taux_|conso_|mode_facturation|forfait|bateaux_faits|devis|facture|marge_produits|prix_km)/i.test(m)) {
+    return 'La base doit être mise à jour (script Supabase « v2_interventions.sql » à lancer).';
+  }
+  if (/statut_check/i.test(m)) return 'La base doit être mise à jour (script Supabase « v2_interventions.sql » à lancer).';
   if (/mode_paiement/i.test(m)) return 'La base doit être mise à jour pour le mode de paiement (script Supabase « mode_paiement.sql » à lancer).';
   if (/foreign key|violates/i.test(m)) return 'Opération impossible : des éléments liés existent encore.';
   if (/JWT|token|not authenticated/i.test(m)) return 'Session expirée : déconnecte-toi puis reconnecte-toi.';

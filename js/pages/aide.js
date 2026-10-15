@@ -5,23 +5,45 @@ import { titre } from '../utils.js';
 const RUBRIQUES = [
   ['🚀 Bien démarrer', `
     <ol class="etapes">
-      <li><strong>Réglages</strong> : vérifie le <em>coût au km</em> (0,60 € par défaut).</li>
-      <li><strong>Clients</strong> : crée tes clients avec le nom du bateau, le port et le
-        <em>trajet par défaut</em> (destination + km aller-retour).</li>
-      <li><strong>Chantiers</strong> : crée un chantier pour un client (ex. « Antifouling printemps »).</li>
-      <li>Sur la page du chantier, ajoute tes <strong>dépenses</strong> (rouge) et tes <strong>gains</strong> (vert).
-        La marge se calcule toute seule.</li>
+      <li><strong>Réglages › Mes tarifs</strong> : tes taux horaires (nettoyage, entretien), les consommables
+        (% et minimum), le prix du km facturé. Ils s'appliquent à tous les clients.</li>
+      <li><strong>Clients</strong> : crée chaque client avec son bateau (ou ses bateaux, séparés par une virgule)
+        et son <em>mode de facturation</em> : à l'heure, forfait par bateau ou sur devis.
+        Si un client a un prix différent, change ses tarifs dans sa fiche.</li>
+      <li>Après chaque passage : <strong>+ Nouvelle intervention</strong>. Tu mets les heures, l'appli calcule
+        la facture, ton bénéfice net et ton taux horaire net.</li>
+      <li>Ajoute tes <strong>frais réels</strong> sur l'intervention (produits, déplacement…) avec « − Dépense »
+        ou les boutons rapides.</li>
     </ol>`],
 
-  ['➕ Ajouter une dépense ou un gain', `
-    <p>Sur un chantier, touche <strong>− Dépense</strong> ou <strong>+ Gain</strong>.
-      Tape le montant, choisis la catégorie, c'est tout. La date du jour est déjà remplie.</p>
+  ['⏱️ Une intervention, comment ça marche', `
     <ul>
-      <li><strong>Sous-traitance</strong> : indique le nom du sous-traitant.</li>
-      <li><strong>Refacturable au client</strong> : coche-la pour un achat fait pour le client
-        (pièce, produit…). Le total « À refacturer » te rappelle quoi mettre sur la facture.</li>
-      <li>Pour <strong>corriger ou supprimer</strong> un mouvement, touche-le dans la liste.</li>
+      <li><strong>À l'heure</strong> : heures nettoyage × taux + heures entretien × taux
+        + consommables (ex. 10 % avec un minimum de 17,16 €).</li>
+      <li><strong>Forfait par bateau</strong> : coche les bateaux faits (et leurs heures) :
+        nombre de bateaux × forfait.</li>
+      <li><strong>Sur devis</strong> : numéro et montant du devis. Mets quand même tes heures pour connaître
+        ton taux horaire net.</li>
+      <li><strong>Km facturés</strong> : pour un déplacement que tu factures au client (ex. 120 km × 0,50 €).</li>
+      <li><strong>Produits revendus</strong> : enregistre l'achat en dépense en cochant « Refacturé au client » :
+        il est ajouté à la facture avec ta marge.</li>
+      <li>Le <strong>montant facturé</strong> est calculé tout seul, mais tu peux le changer
+        (heure offerte, geste commercial…).</li>
+      <li>Les <strong>tarifs</strong> sont copiés au moment où tu crées l'intervention : si tu augmentes
+        tes prix plus tard, les anciennes interventions ne bougent pas.</li>
     </ul>`],
+
+  ['🎨 Les statuts (comme les couleurs de ton Excel)', `
+    <ul>
+      <li>🔴 <strong>À facturer</strong> : travail fait, facture pas encore envoyée.</li>
+      <li>🟠 <strong>Facturé – en attente</strong> : facture envoyée, pas encore payée.</li>
+      <li>🟢 <strong>Payé</strong> : l'appli te demande la date et le mode de paiement, et ajoute
+        la recette (livre des recettes, URSSAF).</li>
+      <li>⚪ <strong>À ne pas facturer</strong> : geste offert, remboursement…</li>
+      <li>📝 Devis et 🔧 En cours : pour les plus gros chantiers.</li>
+    </ul>
+    <p>Sur l'intervention, le gros bouton bleu te fait passer à l'étape suivante.
+      L'accueil te rappelle ce qu'il reste à facturer et à encaisser.</p>`],
 
   ['📎 Factures et tickets', `
     <p>Dans une dépense ou un gain, touche <strong>📷 Ajouter une photo ou un PDF</strong> :
@@ -36,18 +58,10 @@ const RUBRIQUES = [
   ['⚡ Boutons rapides', `
     <p><strong>🚗 Aller-retour</strong> : crée la dépense de déplacement en 2 touchers avec le trajet du client.
       Tu peux choisir un autre trajet enregistré ou en taper un nouveau (et l'enregistrer pour la prochaine fois).</p>
+    <p>Le coût est calculé avec <em>ton coût au km</em> (Réglages › Mes tarifs) : c'est un frais réel.</p>
     <p><strong>Tes propres boutons</strong> (« Péage », « Plein de produits »…) : crée-les dans
       Réglages › Boutons rapides, ou avec le <strong>＋</strong> sur un chantier.
       Ils ouvrent une dépense déjà remplie : il ne reste qu'à vérifier le montant.</p>`],
-
-  ['🏷️ Les statuts d\'un chantier', `
-    <ul>
-      <li><strong>Devis</strong> : pas encore accepté.</li>
-      <li><strong>En cours</strong> : travaux en cours, il apparaît sur l'accueil.</li>
-      <li><strong>Terminé</strong> : travaux finis, <em>en attente de paiement</em> (rappel sur l'accueil).</li>
-      <li><strong>Payé</strong> : tout est réglé, le chantier est archivé.</li>
-    </ul>
-    <p>Change le statut directement en haut de la page du chantier.</p>`],
 
   ['🧾 Frais généraux', `
     <p>Pour une dépense qui n'est liée à aucun chantier (assurance, outillage, carburant du camion…) :

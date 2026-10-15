@@ -1,7 +1,8 @@
 // Écran Réglages + gestion des trajets enregistrés et des boutons rapides
-import { db, q, coutKm } from '../db.js';
+import { db, q } from '../db.js';
+import { tarifsGeneraux } from '../calculs.js';
 import {
-  esc, euros, titre, toast, aller, surEnvoi, tenter, lireMontant, nomCategorie, aujourdhui, CATEGORIES,
+  esc, euros, titre, toast, aller, surEnvoi, tenter, lireMontant, nomCategorie, aujourdhui, nombreFr, CATEGORIES,
 } from '../utils.js';
 import { partagerFichier } from './export.js';
 import { fabriquerSauvegarde } from '../sauvegarde.js';
@@ -9,23 +10,19 @@ import { espaceUtilise } from '../justificatifs.js';
 
 export async function afficher(main) {
   titre('Réglages');
-  const [{ data }, cout, nbTrajets, nbBoutons] = await Promise.all([
+  const [{ data }, tarifs, nbTrajets, nbBoutons] = await Promise.all([
     db.auth.getUser(),
-    coutKm(),
+    tarifsGeneraux(),
     q(db.from('trajets').select('id')),
     q(db.from('boutons_rapides').select('id')),
   ]);
 
   main.innerHTML = `
-    <form class="carte" id="form-km">
-      <label>Coût au km (€)
-        <input name="cout_km" inputmode="decimal" required value="${cout.toFixed(2).replace('.', ',')}">
-      </label>
-      <p class="aide">Utilisé par le bouton « Aller-retour » : distance × coût au km.</p>
-      <button class="btn principal" type="submit">Enregistrer</button>
-    </form>
-
     <div class="liste">
+      <a class="ligne" href="#/reglages/tarifs">
+        <div><strong>💶 Mes tarifs</strong><small>${euros(tarifs.taux_nettoyage)}/h nettoyage · ${euros(tarifs.taux_entretien)}/h entretien · conso ${nombreFr(tarifs.conso_pct)} %</small></div>
+        <span class="fleche">›</span>
+      </a>
       <a class="ligne" href="#/reglages/trajets">
         <div><strong>🚗 Trajets enregistrés</strong><small>${nbTrajets.length} trajet(s)</small></div>
         <span class="fleche">›</span>
@@ -46,8 +43,8 @@ export async function afficher(main) {
 
     <div class="carte">
       <h3 style="margin-top:0">💾 Sauvegarde complète</h3>
-      <p class="aide">Un fichier Excel avec tous tes clients, chantiers, mouvements et réglages
-        (un onglet pour chaque). À faire une fois par mois et à garder (par mail ou dans Fichiers / iCloud).</p>
+      <p class="aide">Un fichier Excel complet : tableau de bord, un onglet par client (comme ton ancien
+        tableau), mouvements, livre des recettes… À faire une fois par mois et à garder (mail, Fichiers, iCloud).</p>
       <div id="sauvegarde"></div>
     </div>
 
@@ -56,14 +53,6 @@ export async function afficher(main) {
       <div class="info"><span>Connecté avec</span><div>${esc(data.user?.email)}</div></div>
     </div>
     <button class="btn danger" id="deconnexion">Se déconnecter</button>`;
-
-  surEnvoi(main.querySelector('#form-km'), async data => {
-    const cout = lireMontant(data.cout_km);
-    if (cout == null || cout > 10) throw new Error('Coût invalide (ex. 0,60).');
-    const { data: s } = await db.auth.getSession();
-    await q(db.from('reglages').upsert({ user_id: s.session.user.id, cout_km: cout }));
-    toast('Coût au km enregistré');
-  });
 
   // Sauvegarde : 1er toucher = on prépare le fichier Excel, 2e toucher = on l'envoie
   // (l'iPhone n'autorise le partage que juste après un toucher)
@@ -106,6 +95,58 @@ export async function afficher(main) {
     await db.auth.signOut();
     aller('/');
   };
+}
+
+// ---------- Mes tarifs (tarifs généraux) ----------
+
+// Champs de tarifs, utilisés ici et dans la fiche client
+export const LIBELLES_TARIFS = [
+  ['taux_nettoyage', 'Taux horaire nettoyage', '€/h'],
+  ['taux_entretien', 'Taux horaire entretien', '€/h'],
+  ['conso_pct', 'Consommables (% de la main-d\'œuvre)', '%'],
+  ['conso_min', 'Consommables minimum', '€'],
+  ['prix_km_facture', 'Prix du km facturé au client', '€/km'],
+  ['marge_produits', 'Marge sur les produits revendus', '%'],
+];
+
+export async function tarifs(main) {
+  titre('Mes tarifs', '/reglages');
+  const t = await tarifsGeneraux();
+  main.innerHTML = `
+    <form class="carte" id="form-tarifs">
+      <p class="aide" style="margin-top:0">Ces tarifs s'appliquent à <strong>tous les clients</strong>,
+        sauf ceux pour qui tu as mis un tarif particulier (dans leur fiche).
+        Une intervention garde les tarifs du jour où elle a été créée.</p>
+      ${LIBELLES_TARIFS.map(([k, label, unite]) => `
+        <label>${label} (${unite})
+          <input name="${k}" inputmode="decimal" required value="${nombreFr(t[k])}">
+        </label>`).join('')}
+      <h3>Mes frais</h3>
+      <label>Mon coût réel au km (€/km)
+        <input name="cout_km" inputmode="decimal" required value="${nombreFr(t.cout_km)}">
+      </label>
+      <p class="aide">Utilisé par le bouton « Aller-retour » pour calculer tes frais de déplacement.</p>
+      <button class="btn principal" type="submit">Enregistrer</button>
+    </form>`;
+
+  surEnvoi(main.querySelector('#form-tarifs'), async data => {
+    const valeurs = {};
+    for (const [k, v] of Object.entries(data)) {
+      const x = lireNombre(v);
+      if (x == null) throw new Error('Un des tarifs n\'est pas un nombre valide (ex. 37 ou 17,16).');
+      valeurs[k] = x;
+    }
+    const { data: s } = await db.auth.getSession();
+    await q(db.from('reglages').upsert({ user_id: s.session.user.id, ...valeurs }));
+    toast('Tarifs enregistrés');
+    aller('/reglages');
+  });
+}
+
+// Lit un nombre positif avec jusqu'à 3 décimales ("0,605", "17,16")
+export function lireNombre(texte) {
+  const t = String(texte ?? '').replace(/[\s€%]/g, '').replace(',', '.');
+  return /^\d+(\.\d{1,3})?$/.test(t) ? Number(t) : null;
 }
 
 // ---------- Trajets enregistrés ----------
