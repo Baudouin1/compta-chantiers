@@ -1,8 +1,9 @@
 // Écran Réglages + gestion des trajets enregistrés et des boutons rapides
 import { db, q, coutKm } from '../db.js';
 import {
-  esc, euros, titre, toast, aller, surEnvoi, tenter, lireMontant, nomCategorie, CATEGORIES,
+  esc, euros, titre, toast, aller, surEnvoi, tenter, lireMontant, nomCategorie, aujourdhui, CATEGORIES,
 } from '../utils.js';
+import { partagerFichier } from './export.js';
 
 export async function afficher(main) {
   titre('Réglages');
@@ -38,6 +39,15 @@ export async function afficher(main) {
     </div>
 
     <div class="carte">
+      <h3 style="margin-top:0">💾 Sauvegarde complète</h3>
+      <p class="aide">Tous tes clients, chantiers, mouvements et réglages dans un seul fichier.
+        À faire une fois par mois et à garder (par mail ou dans Fichiers / iCloud).</p>
+      <div id="sauvegarde">
+        <button class="btn" id="preparer-sauvegarde">Préparer la sauvegarde</button>
+      </div>
+    </div>
+
+    <div class="carte">
       <div class="info"><span>Connecté avec</span><div>${esc(data.user?.email)}</div></div>
     </div>
     <button class="btn danger" id="deconnexion">Se déconnecter</button>`;
@@ -48,6 +58,25 @@ export async function afficher(main) {
     const { data: s } = await db.auth.getSession();
     await q(db.from('reglages').upsert({ user_id: s.session.user.id, cout_km: cout }));
     toast('Coût au km enregistré');
+  });
+
+  // Sauvegarde : 1er toucher = on récupère tout, 2e toucher = on envoie le fichier
+  // (l'iPhone n'autorise le partage que juste après un toucher)
+  main.querySelector('#preparer-sauvegarde').onclick = () => tenter(async () => {
+    const zone = main.querySelector('#sauvegarde');
+    zone.innerHTML = '<p class="aide">Préparation…</p>';
+    const tables = ['clients', 'chantiers', 'mouvements', 'trajets', 'boutons_rapides', 'reglages'];
+    const contenu = { application: 'Compta Chantiers', date: new Date().toISOString(), email: data.user?.email };
+    try {
+      for (const t of tables) contenu[t] = await q(db.from(t).select('*'));
+    } catch (err) {
+      zone.innerHTML = '<button class="btn" id="preparer-sauvegarde">Préparer la sauvegarde</button>';
+      throw err;
+    }
+    const nb = contenu.clients.length + contenu.chantiers.length + contenu.mouvements.length;
+    zone.innerHTML = `<button class="btn gain" id="envoyer-sauvegarde">📤 Envoyer la sauvegarde (${nb} éléments)</button>`;
+    zone.querySelector('#envoyer-sauvegarde').onclick = () => tenter(() =>
+      partagerFichier(JSON.stringify(contenu, null, 1), `sauvegarde_compta_${aujourdhui()}.json`, 'application/json'));
   });
 
   main.querySelector('#deconnexion').onclick = async () => {

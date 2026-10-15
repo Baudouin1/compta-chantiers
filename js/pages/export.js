@@ -87,9 +87,14 @@ export function fabriquerCSV(mouvements) {
   return '﻿' + [entetes, ...lignes].map(l => l.map(cellule).join(';')).join('\r\n');
 }
 
-// Propose d'envoyer le fichier (mail, WhatsApp, Fichiers…) ou le télécharge
-export async function partagerCSV(mouvements, nomFichier) {
-  const fichier = new File([fabriquerCSV(mouvements)], nomFichier, { type: 'text/csv' });
+export function partagerCSV(mouvements, nomFichier) {
+  return partagerFichier(fabriquerCSV(mouvements), nomFichier, 'text/csv');
+}
+
+// Propose d'envoyer un fichier (mail, WhatsApp, Fichiers…) ou le télécharge.
+// Sur iPhone, à appeler directement après un toucher (pas après une attente réseau).
+export async function partagerFichier(contenu, nomFichier, type) {
+  const fichier = new File([contenu], nomFichier, { type });
   if (navigator.canShare?.({ files: [fichier] })) {
     try {
       await navigator.share({ files: [fichier], title: nomFichier });

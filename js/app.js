@@ -10,6 +10,7 @@ import * as reglages from './pages/reglages.js';
 import * as deplacement from './pages/deplacement.js';
 import * as exportCsv from './pages/export.js';
 import * as calendrier from './pages/calendrier.js';
+import * as frais from './pages/frais.js';
 
 // Liste des écrans : adresse -> fonction qui affiche l'écran
 const ROUTES = [
@@ -24,6 +25,7 @@ const ROUTES = [
   ['/client/:id/modifier', clients.formulaire, 'clients'],
   ['/mouvement/nouveau', mouvements.formulaire, null],
   ['/mouvement/:id', mouvements.formulaire, null],
+  ['/frais', frais.liste, 'accueil'],
   ['/deplacement', deplacement.formulaire, null],
   ['/calendrier', calendrier.formulaire, null],
   ['/reglages', reglages.afficher, 'reglages'],
@@ -62,7 +64,17 @@ async function afficherEcran() {
   if (!session) {
     nav.hidden = true;
     titre('Compta Chantiers');
+    // Lien "mot de passe oublié" expiré ou déjà utilisé : on nettoie l'adresse
+    if (location.search) history.replaceState(null, '', '/');
     return connexion.afficher(main);
+  }
+  // Arrivée par le lien "mot de passe oublié" reçu par email
+  if (new URLSearchParams(location.search).has('reinit')) {
+    nav.hidden = true;
+    return connexion.nouveauMotDePasse(main, () => {
+      history.replaceState(null, '', '/');
+      afficherEcran();
+    });
   }
   nav.hidden = false;
   const [chemin, recherche] = (location.hash.slice(1) || '/').split('?');

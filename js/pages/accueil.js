@@ -38,5 +38,12 @@ export async function afficher(main) {
     <div class="liste">
       ${enCours.map(ligneChantier).join('') || '<p class="vide">Aucun chantier en cours.</p>'}
     </div>
-    <a class="btn principal" href="#/chantier/nouveau">+ Nouveau chantier</a>`;
+    <a class="btn principal" href="#/chantier/nouveau">+ Nouveau chantier</a>
+
+    <div class="liste">
+      <a class="ligne" href="#/frais">
+        <div><strong>Frais généraux</strong><small>Dépenses et gains hors chantier</small></div>
+        <span class="fleche">›</span>
+      </a>
+    </div>`;
 }

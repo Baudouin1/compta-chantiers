@@ -15,7 +15,7 @@ export async function formulaire(main, { id, query }) {
          },
     q(db.from('chantiers').select('id, nom, statut, clients(nom)').order('created_at', { ascending: false })),
   ]);
-  const retour = m.chantier_id ? `/chantier/${m.chantier_id}` : '/';
+  const retour = m.chantier_id ? `/chantier/${m.chantier_id}` : '/frais';
   titre(id ? 'Modifier le mouvement' : 'Nouveau mouvement', retour);
 
   main.innerHTML = `
@@ -99,7 +99,7 @@ export async function formulaire(main, { id, query }) {
     if (id) await q(db.from('mouvements').update(data).eq('id', id));
     else await q(db.from('mouvements').insert(data));
     toast('Enregistré');
-    aller(data.chantier_id ? `/chantier/${data.chantier_id}` : '/');
+    aller(data.chantier_id ? `/chantier/${data.chantier_id}` : '/frais');
   });
 
   const suppr = main.querySelector('#supprimer');
