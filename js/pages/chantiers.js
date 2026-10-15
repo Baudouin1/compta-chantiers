@@ -171,9 +171,7 @@ export async function fiche(main, { id }) {
 
     <div class="rapides">
       <a class="btn" href="#/deplacement?chantier=${c.id}">🚗 Aller-retour</a>
-      ${boutons.map(b => `<a class="btn" href="#/mouvement/nouveau?${new URLSearchParams({
-        chantier: c.id, sens: 'depense', categorie: b.categorie, montant: b.montant, description: b.libelle,
-      })}">${esc(b.libelle)}</a>`).join('')}
+      ${boutons.map(b => `<a class="btn" href="#/chantier/${c.id}/modifier?frais=1&bouton=${b.id}">${esc(b.libelle)}</a>`).join('')}
       <a class="btn ajout" href="#/reglages/bouton/nouveau" aria-label="Ajouter un bouton rapide">＋</a>
     </div>
 
@@ -255,6 +253,18 @@ export function ligneMouvement(m) {
 function kmDepuis(description) {
   const m = String(description || '').match(/\(\s*([\d.,]+)\s*km\s*\)/);
   return m ? Number(m[1].replace(',', '.')) : null;
+}
+
+// Quantité écrite dans le libellé d'un bouton rapide : "Huile moteur (3 × 12,50 €)" -> { qte: 3, pu: 12.5 }
+const RE_QTE = /\s*\(\s*([\d.,]+)\s*×\s*([\d.,]+)\s*€\s*\)\s*$/;
+function quantiteDepuis(description) {
+  const m = String(description || '').match(RE_QTE);
+  return m ? { qte: Number(m[1].replace(',', '.')), pu: Number(m[2].replace(',', '.')) } : null;
+}
+const prix = n => (Math.round(n * 100) / 100).toFixed(2).replace('.', ',');
+// Libellé enregistré : on remet la quantité à la fin si la ligne en a une
+function descriptionComplete(f) {
+  return f.qte != null ? `${f.description} (${nombreFr(f.qte)} × ${prix(f.pu)} €)` : f.description;
 }
 
 // ---------- Enregistrer le paiement d'une intervention ----------
@@ -347,13 +357,18 @@ export async function formulaire(main, { id, query }) {
   // Frais de l'intervention : chaque ligne = une dépense (aller-retour, consommables, produit revendu…)
   // On les modifie ici directement ; à l'enregistrement on crée / modifie / supprime les dépenses.
   const paiements = (c.mouvements || []).filter(m => m.sens === 'gain');
-  let frais = (c.mouvements || []).filter(m => m.sens === 'depense').map(m => ({
-    id: m.id, categorie: m.categorie, description: m.description || '', montant: Number(m.montant),
-    refacturable: !!m.refacturable, photo_path: m.photo_path, km: kmDepuis(m.description),
-  }));
+  let frais = (c.mouvements || []).filter(m => m.sens === 'depense').map(m => {
+    const q = quantiteDepuis(m.description);
+    return {
+      id: m.id, categorie: m.categorie, description: q ? m.description.replace(RE_QTE, '') : (m.description || ''),
+      montant: Number(m.montant), refacturable: !!m.refacturable, photo_path: m.photo_path,
+      km: kmDepuis(m.description), qte: q?.qte ?? null, pu: q?.pu ?? null,
+    };
+  });
   const fraisInitiaux = JSON.stringify(frais);
 
   const fraisActifs = () => frais.filter(f => !f.supprime);
+  let boutonAjoute = false;
 
   const champNombre = (nom, label, valeur, extra = '') => `
     <label>${label}
@@ -413,9 +428,13 @@ export async function formulaire(main, { id, query }) {
             <button type="button" class="puce" data-ajout="ar">🚗 Aller-retour</button>
             <button type="button" class="puce" data-ajout="conso">🧴 Consommables</button>
             <button type="button" class="puce" data-ajout="produit">⚙️ Produit revendu</button>
-            ${boutons.map((b, k) => `<button type="button" class="puce" data-ajout="bouton" data-k="${k}">${esc(b.libelle)}</button>`).join('')}
             <button type="button" class="puce" data-ajout="autre">＋ Autre</button>
           </div>
+          ${boutons.length ? `
+          <p class="aide sous-titre-frais">⚡ Mes boutons rapides (touche plusieurs fois pour en ajouter)</p>
+          <div class="ajout-frais">
+            ${boutons.map((b, k) => `<button type="button" class="puce rapide" data-ajout="bouton" data-k="${k}">${esc(b.libelle)} <small>${prix(Number(b.montant))} €</small></button>`).join('')}
+          </div>` : `<p class="aide sous-titre-frais"><a href="#/reglages/boutons">⚡ Crée tes boutons rapides</a> (produits que tu utilises souvent, avec leur prix)</p>`}
         </div>
         <label>Commentaire
           <textarea name="description" rows="2" placeholder="ex. nettoyage + vidange eaux grises">${esc(v.description ?? '')}</textarea>
@@ -564,9 +583,12 @@ export async function formulaire(main, { id, query }) {
               <div class="sous-ligne">
                 ${estAR
                   ? `<span class="f-km"><input class="f-km-val" inputmode="decimal" value="${nombreFr(f.km)}"> km × ${euros(generaux.cout_km)}</span>`
+                  : f.qte != null
+                  ? `<span class="f-km f-qte"><button type="button" class="f-moins" aria-label="Un de moins">−</button><input class="f-qte-val" inputmode="decimal" value="${nombreFr(f.qte)}"><button type="button" class="f-plus" aria-label="Un de plus">+</button></span>`
                   : `<label class="case petite"><input type="checkbox" class="f-refac" ${f.refacturable ? 'checked' : ''}> Refacturé au client</label>`}
-                <span class="f-euros"><input class="f-montant" inputmode="decimal" value="${f.montant != null ? (estAR ? f.montant.toFixed(2).replace('.', ',') : nombreFr(f.montant)) : ''}" placeholder="0,00" ${estAR ? 'readonly' : ''}> €</span>
+                <span class="f-euros"><input class="f-montant" inputmode="decimal" value="${f.montant != null ? (estAR || f.qte != null ? prix(f.montant) : nombreFr(f.montant)) : ''}" placeholder="0,00" ${estAR || f.qte != null ? 'readonly' : ''}> €</span>
               </div>
+              ${f.qte != null ? `<small class="f-pu">Quantité × ${prix(f.pu)} € l'unité</small>` : ''}
               ${f.photo_path ? '<small class="aide">📎 justificatif joint</small>' : ''}
             </div>
             <button type="button" class="f-suppr" aria-label="Supprimer">✕</button>
@@ -587,16 +609,34 @@ export async function formulaire(main, { id, query }) {
         ligne.querySelector('.f-montant').value = f.montant.toFixed(2).replace('.', ',');
         ligne.querySelector('.f-desc').value = f.description;
       }
-      majApercu();
+      if (e.target.classList.contains('f-qte-val')) {
+        f.qte = lireNombre(e.target.value) || 0;
+        majQuantite(ligne, f, false);
+      }
+      majApercu(); majTotal();
+    });
+    const majTotal = () => {
       const total = fraisActifs().reduce((x, g) => x + (g.montant || 0), 0);
       const t = zoneFrais.querySelector('.total-frais strong'); if (t) t.textContent = euros(total);
-    });
+    };
+    function majQuantite(ligne, f, ecrire = true) {
+      f.montant = Math.round(f.qte * f.pu * 100) / 100;
+      ligne.querySelector('.f-montant').value = prix(f.montant);
+      if (ecrire) ligne.querySelector('.f-qte-val').value = nombreFr(f.qte);
+    }
     zoneFrais.addEventListener('change', e => {
       if (!e.target.classList.contains('f-refac')) return;
       frais[e.target.closest('.ligne-frais').dataset.i].refacturable = e.target.checked;
       majApercu();
     });
     zoneFrais.addEventListener('click', e => {
+      const pas = e.target.classList.contains('f-plus') ? 1 : e.target.classList.contains('f-moins') ? -1 : 0;
+      if (pas) {
+        const ligne = e.target.closest('.ligne-frais'), f = frais[ligne.dataset.i];
+        f.qte = Math.max(0, (f.qte || 0) + pas);
+        majQuantite(ligne, f); majApercu(); majTotal();
+        return;
+      }
       if (!e.target.classList.contains('f-suppr')) return;
       const f = frais[e.target.closest('.ligne-frais').dataset.i];
       if (f.photo_path && !confirm('Ce frais a un justificatif (photo / PDF). Le supprimer aussi ?')) return;
@@ -620,18 +660,33 @@ export async function formulaire(main, { id, query }) {
         } else ajouterAR(options[0] || null);
         return;
       }
+      if (type === 'bouton') { ajouterBouton(boutons[b.dataset.k]); return; }
       const modele = {
         conso: { categorie: 'produits', description: 'Consommables', refacturable: false },
         produit: { categorie: 'pieces', description: '', refacturable: true },
         autre: { categorie: 'autre', description: '', refacturable: false },
-      }[type] || (() => { const x = boutons[b.dataset.k]; return { categorie: x.categorie, description: x.libelle, montant: Number(x.montant), refacturable: false }; })();
+      }[type];
       frais.push({ montant: null, ...modele });
       dessinerFrais(); majApercu();
       const lignes = zoneFrais.querySelectorAll('.ligne-frais');
       const derniere = lignes[lignes.length - 1];
       (modele.description ? derniere?.querySelector('.f-montant') : derniere?.querySelector('.f-desc'))?.focus();
     });
+    function ajouterBouton(x) {
+      const pu = Number(x.montant);
+      let f = fraisActifs().find(g => g.qte != null && g.description === x.libelle && g.pu === pu);
+      if (f) f.qte += 1;
+      else frais.push(f = { categorie: x.categorie, description: x.libelle, qte: 1, pu, montant: 0, refacturable: false });
+      f.montant = Math.round(f.qte * pu * 100) / 100;
+      dessinerFrais(); majApercu();
+      const ligne = zoneFrais.querySelector(`.ligne-frais[data-i="${frais.indexOf(f)}"]`);
+      ligne?.classList.add('flash');
+      ligne?.scrollIntoView({ block: 'nearest' });
+    }
     dessinerFrais();
+    // Arrivé depuis un bouton rapide de la fiche : on l'ajoute une seule fois
+    const venuDuBouton = !boutonAjoute && boutons.find(b => b.id === query.bouton);
+    if (venuDuBouton) { boutonAjoute = true; ajouterBouton(venuDuBouton); }
     if (query.frais) setTimeout(() => main.querySelector('#bloc-frais')?.scrollIntoView({ block: 'start' }), 50);
 
     form.querySelectorAll('[name=mode_facturation]').forEach(x => x.addEventListener('change', () => { majMode(); majApercu(); }));
@@ -676,13 +731,14 @@ export async function formulaire(main, { id, query }) {
       if (JSON.stringify(frais) !== fraisInitiaux) {
         const avant = Object.fromEntries(JSON.parse(fraisInitiaux).map(f => [f.id, f]));
         for (const f of frais) {
-          const ligne = { categorie: f.categorie, montant: f.montant, description: f.description || nomCategorie('depense', f.categorie), refacturable: !!f.refacturable };
+          if (f.qte === 0) f.supprime = true; // quantité 0 = on ne l'a pas utilisé
+          const ligne = { categorie: f.categorie, montant: f.montant, description: descriptionComplete(f) || nomCategorie('depense', f.categorie), refacturable: !!f.refacturable };
           if (f.id && f.supprime) {
             await q(db.from('mouvements').delete().eq('id', f.id));
             if (f.photo_path) await db.storage.from('justificatifs').remove([f.photo_path]);
           } else if (f.id) {
             const a = avant[f.id];
-            if (a.montant !== f.montant || a.description !== f.description || a.refacturable !== f.refacturable) {
+            if (a.montant !== f.montant || descriptionComplete(a) !== descriptionComplete(f) || a.refacturable !== f.refacturable) {
               await q(db.from('mouvements').update(ligne).eq('id', f.id));
             }
           } else if (!f.supprime && f.montant > 0) {

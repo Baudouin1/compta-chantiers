@@ -208,8 +208,8 @@ export async function boutons(main) {
   const liste = await q(db.from('boutons_rapides').select('*').order('libelle'));
   main.innerHTML = `
     <a class="btn principal" href="#/reglages/bouton/nouveau">+ Nouveau bouton</a>
-    <p class="aide">Ces boutons apparaissent sur la page de chaque intervention.
-      Ils ouvrent une dépense déjà remplie, dont tu peux changer le montant.</p>
+    <p class="aide">Ces boutons apparaissent dans chaque intervention (bloc « Frais »).
+      Tu touches le bouton puis tu indiques combien tu en as utilisé : le montant se calcule tout seul.</p>
     <div class="liste">
       ${liste.map(b => `
         <a class="ligne" href="#/reglages/bouton/${b.id}">
@@ -225,7 +225,7 @@ export async function boutonFormulaire(main, { id }) {
   main.innerHTML = `
     <form class="carte" id="form-bouton">
       <label>Nom du bouton *
-        <input name="libelle" required maxlength="30" value="${esc(b.libelle ?? '')}" placeholder="ex. Péage">
+        <input name="libelle" required maxlength="30" value="${esc(b.libelle ?? '')}" placeholder="ex. Huile moteur">
       </label>
       <label>Catégorie de la dépense
         <select name="categorie">
@@ -233,7 +233,7 @@ export async function boutonFormulaire(main, { id }) {
             `<option value="${k}" ${k === b.categorie ? 'selected' : ''}>${v}</option>`).join('')}
         </select>
       </label>
-      <label>Montant par défaut (€) *
+      <label>Prix à l'unité (€) *
         <input name="montant" inputmode="decimal" required value="${b.montant != null ? String(b.montant).replace('.', ',') : ''}">
       </label>
       <button class="btn principal" type="submit">Enregistrer</button>
