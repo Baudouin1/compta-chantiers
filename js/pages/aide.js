@@ -47,13 +47,21 @@ const RUBRIQUES = [
   ['📅 Calendrier', `
     <p>Sur un chantier, touche <strong>Ajouter au calendrier</strong>
       (ou <strong>Rendez-vous</strong> sur une fiche client).
-      Choisis « Journée(s) » pour un chantier sur plusieurs jours, ou « Rendez-vous » avec une heure.
-      L'iPhone affiche l'événement : touche <strong>Ajouter</strong>.</p>
+      Choisis « Journée(s) » pour un chantier sur plusieurs jours, ou « Rendez-vous » avec une heure.</p>
+    <p>Safari s'ouvre : touche <strong>Autoriser</strong>, puis <strong>Ajouter au calendrier</strong>,
+      et reviens dans l'appli.</p>
     <p class="astuce">L'événement est une copie : si la date change, modifie-le aussi dans ton calendrier.</p>`],
 
   ['📊 Bilan', `
     <p>Sur l'accueil, touche <strong>Voir le bilan de l'année</strong> : la marge mois par mois,
       où part l'argent (par catégorie) et tes chantiers les plus rentables.</p>`],
+
+  ['🧮 Micro-entreprise : déclaration URSSAF', `
+    <p>Dans <strong>Accueil › Voir le bilan</strong>, la rubrique <em>Chiffre d'affaires à déclarer</em>
+      donne le total encaissé par mois et par trimestre : c'est ce montant qu'on déclare à l'URSSAF.</p>
+    <p>Pour le <strong>livre des recettes</strong> : Réglages › Export CSV › « Recettes seulement ».</p>
+    <p class="astuce">Pense à bien saisir chaque paiement reçu (facture, acompte) avec la <strong>date
+      où l'argent est arrivé</strong>.</p>`],
 
   ['📤 Envoyer au comptable', `
     <p><strong>Réglages › Export CSV</strong> : choisis la période (ex. « Mois dernier »),
@@ -65,7 +73,8 @@ const RUBRIQUES = [
     <p>Tes données sont enregistrées en ligne : rien n'est perdu si tu changes de téléphone,
       il suffit de te reconnecter.</p>
     <p>Par sécurité, une fois par mois : <strong>Réglages › Sauvegarde complète</strong>,
-      puis envoie-toi le fichier par mail.</p>`],
+      puis envoie-toi le fichier par mail. C'est un fichier <strong>Excel</strong> qu'on peut ouvrir
+      et lire (un onglet pour les mouvements, les chantiers, les clients…).</p>`],
 
   ['📱 Installer, mettre à jour', `
     <ul>

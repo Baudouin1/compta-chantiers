@@ -110,8 +110,82 @@ export function toast(message) {
   setTimeout(() => t.remove(), 2500);
 }
 
+// ---------- Navigation entre les écrans ----------
+// On gère l'historique nous-mêmes pour que « glisser pour revenir » sur iPhone reste logique :
+// - les 4 onglets du bas sont des points de départ : on ne peut pas revenir avant ;
+// - après un enregistrement, on ne revient jamais sur le formulaire.
+
+const RACINES = ['/', '/chantiers', '/clients', '/reglages'];
+let afficheur = () => {};
+let pile = [];               // écrans ouverts, du plus ancien au plus récent
+let racineEnAttente = null;  // onglet à afficher une fois revenu au début de l'historique
+
+const profondeur = () => history.state?.p ?? 0;
+export const cheminActuel = () => location.hash.slice(1) || '/';
+
+// Écrans de saisie (la barre du bas y est cachée, et on ne revient pas dessus après l'enregistrement)
+export function estFormulaire(chemin) {
+  return /\/(nouveau|modifier)$/.test(chemin)
+    || /^\/(mouvement|deplacement|calendrier|export|reglages\/(trajet|bouton)\/)/.test(chemin);
+}
+
+export function demarrerNavigation(fn) {
+  afficheur = fn;
+  history.replaceState({ p: profondeur() }, '', '#' + cheminActuel());
+  pile[profondeur()] = cheminActuel();
+
+  window.addEventListener('popstate', () => {
+    if (racineEnAttente !== null && profondeur() === 0) {
+      history.replaceState({ p: 0 }, '', '#' + racineEnAttente);
+      pile = [racineEnAttente];
+      racineEnAttente = null;
+    } else {
+      pile[profondeur()] = cheminActuel();
+      pile.length = profondeur() + 1;
+    }
+    afficheur();
+  });
+
+  // Tous les liens internes (href="#/...") passent par aller()
+  document.addEventListener('click', e => {
+    const lien = e.target.closest('a[href^="#/"]');
+    if (!lien) return;
+    e.preventDefault();
+    aller(lien.getAttribute('href').slice(1));
+  });
+}
+
 export function aller(chemin) {
-  location.hash = chemin;
+  const p = profondeur();
+  if (RACINES.includes(chemin.split('?')[0])) {
+    // Onglet : on efface l'historique de l'appli
+    if (p > 0) {
+      racineEnAttente = chemin;
+      history.go(-p);
+      return;
+    }
+    history.replaceState({ p: 0 }, '', '#' + chemin);
+    pile = [chemin];
+  } else if (p > 0 && pile[p - 1] === chemin) {
+    // C'est l'écran d'avant (ex. retour sur le chantier après avoir ajouté une dépense)
+    history.back();
+    return;
+  } else if (estFormulaire(cheminActuel())) {
+    // On quitte un formulaire : il est remplacé, pour ne pas pouvoir revenir dessus
+    history.replaceState({ p }, '', '#' + chemin);
+    pile[p] = chemin;
+  } else {
+    history.pushState({ p: p + 1 }, '', '#' + chemin);
+    pile[p + 1] = chemin;
+    pile.length = p + 2;
+  }
+  afficheur();
+}
+
+// Bouton ‹ en haut à gauche : écran précédent, ou l'écran "parent" si on vient d'ouvrir l'appli
+function revenir(parent) {
+  if (profondeur() > 0) history.back();
+  else aller(parent);
 }
 
 // Titre en haut de l'écran : bouton retour si besoin, sinon le logo
@@ -120,7 +194,7 @@ export function titre(texte, retour = null) {
   entete.innerHTML = `
     ${retour ? `<button class="retour" aria-label="Retour">‹</button>` : '<img class="logo-entete" src="icons/icon-192.png" alt="">'}
     <h1>${esc(texte)}</h1>`;
-  if (retour) entete.querySelector('.retour').onclick = () => { location.hash = retour; };
+  if (retour) entete.querySelector('.retour').onclick = () => revenir(retour);
 }
 
 // Traduit les erreurs techniques en message compréhensible
@@ -159,4 +233,38 @@ export function dateValide(iso) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || '')) return false;
   const annee = Number(iso.slice(0, 4));
   return annee >= 2000 && annee <= 2100;
+}
+
+// ---------- Ouvrir une autre appli (GPS…) ----------
+// On essaie d'ouvrir l'appli directement ; si rien ne se passe (appli pas installée),
+// on ouvre la version web au bout d'un instant.
+export function ouvrirAppli(lienAppli, lienWeb) {
+  let quitte = false;
+  const surQuitte = () => { quitte = true; };
+  document.addEventListener('visibilitychange', surQuitte, { once: true });
+  location.href = lienAppli;
+  setTimeout(() => {
+    document.removeEventListener('visibilitychange', surQuitte);
+    if (!quitte && !document.hidden) window.open(lienWeb, '_blank');
+  }, 1500);
+}
+
+// Petit menu de choix qui monte du bas de l'écran
+// options : [{ texte, action }]
+export function menuChoix(titreMenu, options) {
+  const fond = document.createElement('div');
+  fond.className = 'menu-fond';
+  fond.innerHTML = `
+    <div class="menu-choix">
+      <p>${esc(titreMenu)}</p>
+      ${options.map((o, i) => `<button class="btn" data-i="${i}">${o.texte}</button>`).join('')}
+      <button class="btn lien" data-i="annuler">Annuler</button>
+    </div>`;
+  fond.onclick = e => {
+    const i = e.target.closest('[data-i]')?.dataset.i;
+    if (e.target !== fond && i === undefined) return;
+    fond.remove();
+    if (i !== undefined && i !== 'annuler') options[i].action();
+  };
+  document.body.appendChild(fond);
 }

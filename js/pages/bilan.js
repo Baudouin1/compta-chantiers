@@ -55,6 +55,22 @@ export async function afficher(main, { query }) {
     </div>
 
     ${!mvts.length ? '<p class="vide">Aucun mouvement en ' + annee + '.</p>' : `
+    <h2>Chiffre d'affaires à déclarer</h2>
+    <div class="carte">
+      <p class="aide" style="margin-top:0">Micro-entreprise : on déclare à l'URSSAF le total des sommes
+        encaissées (factures, acomptes…), sans retirer les dépenses.</p>
+      ${[0, 1, 2, 3].map(tr => {
+        const m3 = mois.slice(tr * 3, tr * 3 + 3);
+        const total = m3.reduce((s, m) => s + m.gains, 0);
+        return `
+        <div class="info">
+          <span>${tr + 1}${tr ? 'e' : 'er'} trimestre · ${m3.map(m => `${m.nom} ${euros(m.gains)}`).join(' · ')}</span>
+          <div><strong>${euros(total)}</strong></div>
+        </div>`;
+      }).join('')}
+      <div class="info"><span>Total ${annee}</span><div><strong class="pos">${euros(t.gains)}</strong></div></div>
+    </div>
+
     <h2>Mois par mois</h2>
     <div class="carte">
       <div class="legende"><span><i style="background:var(--vert)"></i>Gains</span><span><i style="background:var(--rouge)"></i>Dépenses</span></div>

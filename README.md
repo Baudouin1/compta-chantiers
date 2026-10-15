@@ -18,6 +18,8 @@ Petite appli (PWA) pour suivre les dépenses et les gains par chantier.
 | `supabase/schema.sql` | Création des tables (à coller dans Supabase > SQL Editor) |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Ce qui rend l'appli installable |
 | `lib/supabase.js` | Bibliothèque Supabase (ne pas modifier) |
+| `lib/xlsx.mini.min.js` | Bibliothèque Excel pour la sauvegarde (ne pas modifier) |
+| `js/sauvegarde.js` | Fabrique la sauvegarde Excel |
 
 ## Modifier les catégories
 

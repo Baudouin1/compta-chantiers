@@ -4,6 +4,7 @@ import {
   esc, euros, titre, toast, aller, surEnvoi, tenter, lireMontant, nomCategorie, aujourdhui, CATEGORIES,
 } from '../utils.js';
 import { partagerFichier } from './export.js';
+import { fabriquerSauvegarde } from '../sauvegarde.js';
 
 export async function afficher(main) {
   titre('Réglages');
@@ -44,11 +45,9 @@ export async function afficher(main) {
 
     <div class="carte">
       <h3 style="margin-top:0">💾 Sauvegarde complète</h3>
-      <p class="aide">Tous tes clients, chantiers, mouvements et réglages dans un seul fichier.
-        À faire une fois par mois et à garder (par mail ou dans Fichiers / iCloud).</p>
-      <div id="sauvegarde">
-        <button class="btn" id="preparer-sauvegarde">Préparer la sauvegarde</button>
-      </div>
+      <p class="aide">Un fichier Excel avec tous tes clients, chantiers, mouvements et réglages
+        (un onglet pour chaque). À faire une fois par mois et à garder (par mail ou dans Fichiers / iCloud).</p>
+      <div id="sauvegarde"></div>
     </div>
 
     <div class="carte">
@@ -64,29 +63,32 @@ export async function afficher(main) {
     toast('Coût au km enregistré');
   });
 
-  // Sauvegarde : 1er toucher = on récupère tout, 2e toucher = on envoie le fichier
+  // Sauvegarde : 1er toucher = on prépare le fichier Excel, 2e toucher = on l'envoie
   // (l'iPhone n'autorise le partage que juste après un toucher)
-  main.querySelector('#preparer-sauvegarde').onclick = () => tenter(async () => {
-    const zone = main.querySelector('#sauvegarde');
-    zone.innerHTML = '<p class="aide">Préparation…</p>';
-    const tables = ['clients', 'chantiers', 'mouvements', 'trajets', 'boutons_rapides', 'reglages'];
-    const contenu = { application: 'Compta Chantiers', date: new Date().toISOString(), email: data.user?.email };
-    try {
-      for (const t of tables) contenu[t] = await q(db.from(t).select('*'));
-    } catch (err) {
-      zone.innerHTML = '<button class="btn" id="preparer-sauvegarde">Préparer la sauvegarde</button>';
-      throw err;
-    }
-    const nb = contenu.clients.length + contenu.chantiers.length + contenu.mouvements.length;
-    zone.innerHTML = `<button class="btn gain" id="envoyer-sauvegarde">📤 Envoyer la sauvegarde (${nb} éléments)</button>`;
-    zone.querySelector('#envoyer-sauvegarde').onclick = () => tenter(() =>
-      partagerFichier(JSON.stringify(contenu, null, 1), `sauvegarde_compta_${aujourdhui()}.json`, 'application/json'));
-  });
+  const zone = main.querySelector('#sauvegarde');
+  const boutonPreparer = () => {
+    zone.innerHTML = '<button class="btn" id="preparer-sauvegarde">Préparer la sauvegarde</button>';
+    zone.querySelector('#preparer-sauvegarde').onclick = () => tenter(async () => {
+      zone.innerHTML = '<p class="aide">Préparation…</p>';
+      let fichier;
+      try {
+        fichier = await fabriquerSauvegarde();
+      } catch (err) {
+        boutonPreparer();
+        throw err;
+      }
+      zone.innerHTML = `<button class="btn gain" id="envoyer-sauvegarde">📤 Envoyer la sauvegarde (${fichier.nb} éléments)</button>`;
+      zone.querySelector('#envoyer-sauvegarde').onclick = () => tenter(() => partagerFichier(
+        fichier.contenu, `Sauvegarde BluePrestige ${aujourdhui()}.xlsx`,
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'));
+    });
+  };
+  boutonPreparer();
 
   main.querySelector('#deconnexion').onclick = async () => {
     if (!confirm('Se déconnecter ?')) return;
     await db.auth.signOut();
-    location.hash = '/';
+    aller('/');
   };
 }
 

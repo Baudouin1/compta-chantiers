@@ -1,6 +1,6 @@
 // Point d'entrée de l'appli : connexion, navigation entre les écrans, installation
 import { db } from './db.js';
-import { esc, titre, erreurLisible } from './utils.js';
+import { esc, titre, erreurLisible, estFormulaire, cheminActuel, demarrerNavigation } from './utils.js';
 import * as connexion from './pages/connexion.js';
 import * as accueil from './pages/accueil.js';
 import * as chantiers from './pages/chantiers.js';
@@ -45,11 +45,6 @@ const ROUTES = [
 const main = document.getElementById('page');
 const nav = document.getElementById('onglets');
 
-function estFormulaire(chemin) {
-  return /\/(nouveau|modifier)$/.test(chemin)
-    || /^\/(mouvement|deplacement|calendrier|export|reglages\/(trajet|bouton)\/)/.test(chemin);
-}
-
 function trouverRoute(chemin) {
   for (const [modele, fn, onglet] of ROUTES) {
     const a = modele.split('/'), b = chemin.split('/');
@@ -68,6 +63,7 @@ async function afficherEcran() {
   if (!session) {
     nav.hidden = true;
     titre('BluePrestige');
+    window.scrollTo(0, 0);
     // Lien "mot de passe oublié" expiré ou déjà utilisé : on nettoie l'adresse
     if (location.search) history.replaceState(null, '', '/');
     return connexion.afficher(main);
@@ -81,7 +77,7 @@ async function afficherEcran() {
     });
   }
   nav.hidden = false;
-  const [chemin, recherche] = (location.hash.slice(1) || '/').split('?');
+  const [chemin, recherche] = cheminActuel().split('?');
   const { fn, onglet, params } = trouverRoute(chemin);
   params.query = Object.fromEntries(new URLSearchParams(recherche || ''));
 
@@ -100,7 +96,6 @@ async function afficherEcran() {
   }
 }
 
-window.addEventListener('hashchange', afficherEcran);
 
 db.auth.onAuthStateChange((_evenement, s) => {
   const changement = !!s !== !!session;
@@ -110,6 +105,7 @@ db.auth.onAuthStateChange((_evenement, s) => {
 
 const { data } = await db.auth.getSession();
 session = data.session;
+demarrerNavigation(afficherEcran);
 afficherEcran();
 
 // ---------- Barre du bas cachée pendant qu'on tape au clavier ----------
@@ -126,7 +122,7 @@ window.addEventListener('pageshow', () => document.body.classList.remove('saisie
 let cacheeDepuis = null;
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) return (cacheeDepuis = Date.now());
-  const chemin = (location.hash.slice(1) || '/').split('?')[0];
+  const chemin = cheminActuel().split('?')[0];
   if (cacheeDepuis && Date.now() - cacheeDepuis > 30 * 60 * 1000 && !estFormulaire(chemin)) {
     location.reload();
   }

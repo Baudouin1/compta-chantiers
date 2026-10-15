@@ -52,8 +52,13 @@ export async function formulaire(main, { query }) {
 
       <button class="btn principal" type="submit">📅 Ajouter au calendrier</button>
     </form>
-    <p class="aide">L'iPhone va afficher l'événement : touche « Ajouter » pour le mettre dans ton calendrier.
-      Attention, si la date change ensuite, il faudra modifier l'événement dans le calendrier.</p>`;
+    <div class="astuce" id="aide-cal" hidden>
+      <strong>Safari s'ouvre :</strong><br>
+      1. touche <strong>Autoriser</strong> (« Ce site tente d'afficher une invitation de calendrier »),<br>
+      2. puis <strong>Ajouter au calendrier</strong>,<br>
+      3. reviens ensuite dans l'appli.
+    </div>
+    <p class="aide">Si la date change ensuite, pense à modifier l'événement dans ton calendrier.</p>`;
 
   const form = main.querySelector('#form-cal');
   const majType = () => {
@@ -78,8 +83,12 @@ export async function formulaire(main, { query }) {
       if (data.date_fin < data.date) throw new Error('La date de fin ne peut pas être avant la date de début.');
       params.date_fin = data.date_fin;
     }
-    const url = '/api/ics?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v));
-    // Ouvre l'événement dans une fenêtre Safari ; si c'est bloqué, on l'ouvre ici
-    if (!window.open(url, '_blank')) location.href = url;
+    const url = location.origin + '/api/ics?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v));
+    // Dans l'appli installée, l'iPhone ne sait pas ouvrir un événement : on passe par Safari,
+    // qui affiche « Ajouter au calendrier ». Dans Safari, on l'ouvre directement.
+    const installee = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+    main.querySelector('#aide-cal').hidden = false;
+    if (installee) location.href = url.replace(/^https:/, 'x-safari-https:');
+    else location.href = url;
   });
 }

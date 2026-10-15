@@ -25,6 +25,13 @@ export async function afficher(main) {
       <div class="filtres">
         ${Object.keys(periodes).map(p => `<button type="button" data-periode="${p}">${p}</button>`).join('')}
       </div>
+      <label>Contenu
+        <select name="contenu">
+          <option value="tout">Dépenses et recettes</option>
+          <option value="gain">Recettes seulement (livre des recettes)</option>
+          <option value="depense">Dépenses seulement</option>
+        </select>
+      </label>
       <div class="cote-a-cote">
         <label>Du <input name="du" type="date" required></label>
         <label>Au <input name="au" type="date" required></label>
@@ -47,14 +54,15 @@ export async function afficher(main) {
   surEnvoi(form, async data => {
     if (!dateValide(data.du) || !dateValide(data.au)) throw new Error('Dates invalides.');
     if (data.au < data.du) throw new Error('La date de fin ne peut pas être avant la date de début.');
-    const mvts = await q(db.from('mouvements').select(CHAMPS_EXPORT)
-      .gte('date', data.du).lte('date', data.au).order('date'));
+    let requete = db.from('mouvements').select(CHAMPS_EXPORT).gte('date', data.du).lte('date', data.au);
+    if (data.contenu !== 'tout') requete = requete.eq('sens', data.contenu);
+    const mvts = await q(requete.order('date'));
     if (!mvts.length) throw new Error('Aucun mouvement sur cette période.');
     // L'iPhone n'autorise le partage que juste après un toucher : d'où ce 2e bouton
     const resultat = main.querySelector('#resultat');
     resultat.innerHTML = `<button class="btn gain" id="envoyer">📤 Envoyer le fichier (${mvts.length} mouvements)</button>`;
     resultat.querySelector('#envoyer').onclick = () =>
-      tenter(() => partagerCSV(mvts, `mouvements_${data.du}_${data.au}.csv`));
+      tenter(() => partagerCSV(mvts, `${{ tout: 'mouvements', gain: 'recettes', depense: 'depenses' }[data.contenu]}_${data.du}_${data.au}.csv`));
   });
   form.oninput = () => { main.querySelector('#resultat').innerHTML = ''; };
 }

@@ -1,6 +1,6 @@
 // Écrans Clients : liste, fiche, formulaire
 import { db, q } from '../db.js';
-import { esc, euros, titre, toast, aller, surEnvoi, tenter, lireMontant, totaux, classeMarge } from '../utils.js';
+import { esc, euros, titre, toast, aller, surEnvoi, tenter, lireMontant, totaux, classeMarge, menuChoix, ouvrirAppli } from '../utils.js';
 import { ligneChantier } from './chantiers.js';
 
 export async function liste(main) {
@@ -61,7 +61,7 @@ export async function fiche(main, { id }) {
     tel && ['📞', 'Appeler', `tel:${tel}`],
     tel && ['💬', 'Message', `sms:${tel}`],
     c.email && ['✉️', 'Email', `mailto:${c.email}`],
-    lieu && ['📍', 'Itinéraire', `https://maps.apple.com/?daddr=${encodeURIComponent(lieu)}`],
+    lieu && ['📍', 'Itinéraire', '#itineraire'],
     ['📅', 'Rendez-vous', `#/calendrier?client=${c.id}`],
   ].filter(Boolean);
 
@@ -91,6 +91,17 @@ export async function fiche(main, { id }) {
       ${chantiers.map(ligneChantier).join('') || '<p class="vide">Aucun chantier.</p>'}
     </div>
     <a class="btn lien" href="#/client/${c.id}/modifier">✏️ Modifier ou supprimer la fiche</a>`;
+
+  const iti = main.querySelector('[href="#itineraire"]');
+  if (iti) iti.onclick = e => {
+    e.preventDefault();
+    const a = encodeURIComponent(lieu);
+    menuChoix(`Itinéraire vers ${lieu}`, [
+      { texte: '🚙 Waze', action: () => ouvrirAppli(`waze://?q=${a}&navigate=yes`, `https://waze.com/ul?q=${a}&navigate=yes`) },
+      { texte: '🗺️ Google Maps', action: () => ouvrirAppli(`comgooglemaps://?daddr=${a}&directionsmode=driving`, `https://www.google.com/maps/dir/?api=1&destination=${a}`) },
+      { texte: '🍎 Plans (Apple)', action: () => { location.href = `maps://?daddr=${a}`; } },
+    ]);
+  };
 }
 
 export async function formulaire(main, { id }) {

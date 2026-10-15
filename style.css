@@ -249,7 +249,9 @@ label.case input { width: 26px; min-height: 26px; height: 26px; margin: 0; flex:
 .calcul strong { font-size: 24px; color: var(--rouge); }
 
 /* ---------- Connexion ---------- */
-.logo-connexion { display: block; width: 190px; height: 190px; margin: 8px auto 18px; border-radius: 28px; box-shadow: var(--ombre); }
+.marque { text-align: center; margin: 10px 0 20px; }
+.marque img { width: 120px; height: 120px; border-radius: 50%; background: #fff; box-shadow: var(--ombre); }
+.marque div { font-family: Georgia, "Times New Roman", serif; font-size: 32px; font-weight: 700; color: var(--marine); margin-top: 8px; }
 
 /* ---------- Bilan ---------- */
 .barres { display: flex; flex-direction: column; gap: 10px; }
@@ -298,3 +300,17 @@ details.carte p, details.carte ul { line-height: 1.45; font-size: 15.5px; }
   animation: apparait .2s ease-out;
 }
 @keyframes apparait { from { opacity: 0; transform: translate(-50%, 10px); } }
+
+/* ---------- Menu de choix (itinéraire…) ---------- */
+.menu-fond {
+  position: fixed; inset: 0; z-index: 30; background: rgba(11, 35, 77, .35);
+  display: flex; align-items: flex-end; animation: fondu .15s;
+}
+.menu-choix {
+  width: 100%; background: var(--fond); border-radius: 20px 20px 0 0;
+  padding: 16px 16px calc(10px + env(safe-area-inset-bottom)); animation: monte .2s ease-out;
+}
+.menu-choix p { text-align: center; color: var(--gris); margin: 0 0 12px; font-size: 15px; }
+.menu-choix .btn { margin-bottom: 10px; }
+@keyframes fondu { from { opacity: 0; } }
+@keyframes monte { from { transform: translateY(100%); } }
