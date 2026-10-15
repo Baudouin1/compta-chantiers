@@ -1,42 +1,62 @@
 // Écrans Chantiers : liste, page du chantier, formulaire
 import { db, q } from '../db.js';
 import {
-  esc, euros, dateFr, titre, toast, aller, surEnvoi, tenter, dateValide, totaux, classeMarge, nomCategorie, STATUTS,
+  esc, euros, dateFr, titre, toast, aller, surEnvoi, tenter, dateValide, totaux, classeMarge, nomCategorie, iconeCategorie, STATUTS,
 } from '../utils.js';
 import { partagerCSV } from './export.js';
 
 let filtreStatut = 'en_cours';
 
-export async function liste(main) {
+export async function liste(main, { query }) {
   titre('Chantiers');
+  if (STATUTS[query.statut]) filtreStatut = query.statut;
   const chantiers = await q(db.from('chantiers')
     .select('id, nom, statut, date_debut, clients(nom, bateau), mouvements(sens, montant)')
     .order('created_at', { ascending: false }));
 
+  let recherche = '';
+  const filtres = { en_cours: 'En cours', devis: 'Devis', termine: 'Terminés', paye: 'Payés', tous: 'Tous' };
+  const compte = k => chantiers.filter(c => k === 'tous' || c.statut === k).length;
+
   function dessiner() {
-    const visibles = chantiers.filter(c => filtreStatut === 'tous' || c.statut === filtreStatut);
     main.innerHTML = `
       <a class="btn principal" href="#/chantier/nouveau">+ Nouveau chantier</a>
+      ${chantiers.length > 5 ? '<input type="search" id="recherche" placeholder="🔍 Rechercher un chantier, un client…">' : ''}
       <div class="filtres">
-        ${Object.entries({ en_cours: 'En cours', devis: 'Devis', termine: 'Terminés', paye: 'Payés', tous: 'Tous' })
-          .map(([k, v]) => `<button data-statut="${k}" class="${k === filtreStatut ? 'actif' : ''}">${v}</button>`).join('')}
+        ${Object.entries(filtres).map(([k, v]) =>
+          `<button data-statut="${k}" class="${k === filtreStatut ? 'actif' : ''}">${v} (${compte(k)})</button>`).join('')}
       </div>
-      <div class="liste">
-        ${visibles.map(ligneChantier).join('') || '<p class="vide">Aucun chantier ici.</p>'}
-      </div>`;
+      <div class="liste" id="liste-chantiers"></div>`;
     main.querySelectorAll('.filtres button').forEach(b => b.onclick = () => {
       filtreStatut = b.dataset.statut;
       dessiner();
     });
+    const champ = main.querySelector('#recherche');
+    if (champ) {
+      champ.value = recherche;
+      champ.oninput = () => { recherche = champ.value; remplir(); };
+    }
+    remplir();
+  }
+
+  // La recherche porte sur tous les statuts ; sinon on applique le filtre
+  function remplir() {
+    const t = recherche.trim().toLowerCase();
+    const visibles = t
+      ? chantiers.filter(c => `${c.nom} ${c.clients?.nom} ${c.clients?.bateau}`.toLowerCase().includes(t))
+      : chantiers.filter(c => filtreStatut === 'tous' || c.statut === filtreStatut);
+    main.querySelector('#liste-chantiers').innerHTML =
+      visibles.map(ligneChantier).join('') || '<p class="vide">Aucun chantier ici.</p>';
   }
   dessiner();
 }
 
 // Une ligne de chantier dans une liste (utilisée aussi par l'accueil)
 export function ligneChantier(c) {
-  const t = totaux(c.mouvements);
+  const t = totaux(c.mouvements || []);
   return `
     <a class="ligne" href="#/chantier/${c.id}">
+      <span class="pastille">⛵</span>
       <div>
         <strong>${esc(c.nom)}</strong>
         <small>${esc([c.clients?.nom, c.clients?.bateau].filter(Boolean).join(' · '))}</small>
@@ -67,10 +87,13 @@ export async function fiche(main, { id }) {
       ${c.date_debut || c.date_fin ? `<small>${c.date_debut ? 'Du ' + dateFr(c.date_debut) : ''} ${c.date_fin ? 'au ' + dateFr(c.date_fin) : ''}</small>` : ''}
     </div>
 
-    <div class="totaux">
-      <div><span>Dépenses</span><strong class="neg">${euros(t.depenses)}</strong></div>
-      <div><span>Gains</span><strong class="pos">${euros(t.gains)}</strong></div>
-      <div><span>Marge</span><strong class="${classeMarge(t.marge)}">${euros(t.marge)}</strong></div>
+    <div class="resume">
+      <div class="etiquette">Marge du chantier</div>
+      <div class="grand">${euros(t.marge)}</div>
+      <div class="details">
+        <div><span>Dépenses</span><strong>${euros(t.depenses)}</strong></div>
+        <div><span>Gains</span><strong>${euros(t.gains)}</strong></div>
+      </div>
     </div>
     ${t.refacturable ? `<p class="a-refacturer">À refacturer au client : <strong>${euros(t.refacturable)}</strong></p>` : ''}
 
@@ -87,17 +110,19 @@ export async function fiche(main, { id }) {
       <a class="btn ajout" href="#/reglages/bouton/nouveau" aria-label="Ajouter un bouton rapide">＋</a>
     </div>
 
-    <h2>Mouvements</h2>
+    <h2>Mouvements${mvts.length ? ` (${mvts.length})` : ''}</h2>
     <div class="liste">
-      ${mvts.map(ligneMouvement).join('') || '<p class="vide">Aucun mouvement pour l\'instant.</p>'}
+      ${mvts.map(ligneMouvement).join('') || '<p class="vide">Aucun mouvement pour l\'instant.<br>Ajoute une dépense ou un gain avec les boutons ci-dessus.</p>'}
     </div>
 
-    <a class="btn" href="#/calendrier?chantier=${c.id}">📅 Ajouter au calendrier</a>
-    ${mvts.length ? '<button class="btn" id="export">📄 Exporter les mouvements (CSV)</button>' : ''}
-    <a class="btn" href="#/chantier/${c.id}/modifier">Modifier le chantier</a>`;
+    <div class="actions">
+      <a class="btn" href="#/calendrier?chantier=${c.id}"><span>📅</span>Ajouter au calendrier</a>
+      <button class="btn" id="export" ${mvts.length ? '' : 'disabled'}><span>📄</span>Exporter (CSV)</button>
+    </div>
+    <a class="btn lien" href="#/chantier/${c.id}/modifier">✏️ Modifier ou supprimer le chantier</a>`;
 
   const exp = main.querySelector('#export');
-  if (exp) exp.onclick = () => tenter(() => {
+  if (mvts.length) exp.onclick = () => tenter(() => {
     const avecChantier = mvts.map(m => ({ ...m, chantiers: { nom: c.nom, statut: c.statut, clients: c.clients } }));
     const nom = c.nom.normalize('NFD').replace(/[^\w-]+/g, '_');
     return partagerCSV(avecChantier, `chantier_${nom}.csv`);
@@ -122,6 +147,7 @@ export function ligneMouvement(m) {
   const signe = m.sens === 'gain' ? '+' : '−';
   return `
     <a class="ligne" href="#/mouvement/${m.id}">
+      <span class="pastille ${m.sens}">${iconeCategorie(m.sens, m.categorie)}</span>
       <div>
         <strong>${esc(m.description || nomCategorie(m.sens, m.categorie))}</strong>
         <small>${dateFr(m.date)} · ${esc(nomCategorie(m.sens, m.categorie))}${m.sous_traitant ? ' · ' + esc(m.sous_traitant) : ''}</small>
@@ -191,6 +217,10 @@ export async function formulaire(main, { id, query }) {
       ? await q(db.from('chantiers').update(data).eq('id', id).select().single())
       : await q(db.from('chantiers').insert(data).select().single());
     toast('Chantier enregistré');
+    // Nouveau chantier avec une date : on propose de le mettre dans le calendrier
+    if (!id && data.date_debut && confirm('Ajouter ce chantier à ton calendrier iPhone ?')) {
+      return aller(`/calendrier?chantier=${res.id}`);
+    }
     aller(`/chantier/${res.id}`);
   });
 

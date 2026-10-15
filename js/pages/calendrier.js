@@ -3,13 +3,25 @@ import { db, q } from '../db.js';
 import { esc, titre, surEnvoi, aujourdhui, dateValide } from '../utils.js';
 
 export async function formulaire(main, { query }) {
-  const c = await q(db.from('chantiers').select('*, clients(nom, bateau, port, adresse, telephone)')
-    .eq('id', query.chantier).single());
-  titre('Ajouter au calendrier', `/chantier/${c.id}`);
-
-  const cl = c.clients;
-  const nomParDefaut = `${c.nom} – ${cl.nom}${cl.bateau ? ' (' + cl.bateau + ')' : ''}`;
-  const notes = [c.description, cl.telephone ? 'Tél. ' + cl.telephone : ''].filter(Boolean).join('\n');
+  // Deux cas : depuis un chantier (?chantier=…) ou depuis une fiche client (?client=…)
+  const champsClient = 'nom, bateau, port, adresse, telephone';
+  let c, cl, retour, nomParDefaut, notes, rdvParDefaut;
+  if (query.chantier) {
+    c = await q(db.from('chantiers').select(`*, clients(${champsClient})`).eq('id', query.chantier).single());
+    cl = c.clients;
+    retour = `/chantier/${c.id}`;
+    nomParDefaut = `${c.nom} – ${cl.nom}${cl.bateau ? ' (' + cl.bateau + ')' : ''}`;
+    notes = [c.description, cl.telephone ? 'Tél. ' + cl.telephone : ''].filter(Boolean).join('\n');
+    rdvParDefaut = !c.date_debut; // pas de dates de chantier : on propose plutôt un rendez-vous
+  } else {
+    cl = await q(db.from('clients').select(`id, ${champsClient}`).eq('id', query.client).single());
+    c = {};
+    retour = `/client/${cl.id}`;
+    nomParDefaut = `RDV ${cl.nom}${cl.bateau ? ' (' + cl.bateau + ')' : ''}`;
+    notes = cl.telephone ? 'Tél. ' + cl.telephone : '';
+    rdvParDefaut = true;
+  }
+  titre('Ajouter au calendrier', retour);
 
   main.innerHTML = `
     <form class="carte" id="form-cal">
@@ -21,8 +33,8 @@ export async function formulaire(main, { query }) {
       </label>
 
       <div class="segments" id="type">
-        <label class="gain"><input type="radio" name="type" value="journee" checked><span>Journée(s)</span></label>
-        <label class="gain"><input type="radio" name="type" value="heure"><span>Rendez-vous</span></label>
+        <label class="neutre"><input type="radio" name="type" value="journee" ${rdvParDefaut ? '' : 'checked'}><span>Journée(s)</span></label>
+        <label class="neutre"><input type="radio" name="type" value="heure" ${rdvParDefaut ? 'checked' : ''}><span>Rendez-vous</span></label>
       </div>
 
       <div class="cote-a-cote">

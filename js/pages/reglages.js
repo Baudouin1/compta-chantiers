@@ -32,6 +32,10 @@ export async function afficher(main) {
         <div><strong>⚡ Boutons rapides</strong><small>${nbBoutons.length} bouton(s)</small></div>
         <span class="fleche">›</span>
       </a>
+      <a class="ligne" href="#/aide">
+        <div><strong>📖 Guide d'utilisation</strong><small>Comment se servir de l'appli</small></div>
+        <span class="fleche">›</span>
+      </a>
       <a class="ligne" href="#/export">
         <div><strong>📄 Export CSV</strong><small>Pour le comptable</small></div>
         <span class="fleche">›</span>

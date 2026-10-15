@@ -1,6 +1,6 @@
 // Formulaire d'ajout / modification d'un mouvement (dépense ou gain)
 import { db, q } from '../db.js';
-import { esc, titre, toast, aller, surEnvoi, tenter, dateValide, lireMontant, aujourdhui, CATEGORIES } from '../utils.js';
+import { esc, titre, toast, aller, surEnvoi, tenter, dateValide, lireMontant, aujourdhui, iconeCategorie, CATEGORIES } from '../utils.js';
 
 export async function formulaire(main, { id, query }) {
   const [m, chantiers] = await Promise.all([
@@ -75,7 +75,7 @@ export async function formulaire(main, { id, query }) {
     const select = form.categorie;
     const actuelle = select.value || m.categorie;
     select.innerHTML = Object.entries(CATEGORIES[sens])
-      .map(([k, v]) => `<option value="${k}" ${k === actuelle ? 'selected' : ''}>${v}</option>`).join('');
+      .map(([k, v]) => `<option value="${k}" ${k === actuelle ? 'selected' : ''}>${iconeCategorie(sens, k)} ${v}</option>`).join('');
     main.querySelector('#champ-refacturable').hidden = sens !== 'depense';
     main.querySelector('#champ-sous-traitant').hidden = select.value !== 'sous_traitance';
     form.classList.toggle('mode-gain', sens === 'gain');

@@ -11,6 +11,8 @@ import * as deplacement from './pages/deplacement.js';
 import * as exportCsv from './pages/export.js';
 import * as calendrier from './pages/calendrier.js';
 import * as frais from './pages/frais.js';
+import * as bilan from './pages/bilan.js';
+import * as aide from './pages/aide.js';
 
 // Liste des écrans : adresse -> fonction qui affiche l'écran
 const ROUTES = [
@@ -26,6 +28,8 @@ const ROUTES = [
   ['/mouvement/nouveau', mouvements.formulaire, null],
   ['/mouvement/:id', mouvements.formulaire, null],
   ['/frais', frais.liste, 'accueil'],
+  ['/bilan', bilan.afficher, 'accueil'],
+  ['/aide', aide.afficher, 'reglages'],
   ['/deplacement', deplacement.formulaire, null],
   ['/calendrier', calendrier.formulaire, null],
   ['/reglages', reglages.afficher, 'reglages'],
@@ -63,7 +67,7 @@ let session = null;
 async function afficherEcran() {
   if (!session) {
     nav.hidden = true;
-    titre('Compta Chantiers');
+    titre('BluePrestige');
     // Lien "mot de passe oublié" expiré ou déjà utilisé : on nettoie l'adresse
     if (location.search) history.replaceState(null, '', '/');
     return connexion.afficher(main);

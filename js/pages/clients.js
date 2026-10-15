@@ -1,6 +1,7 @@
 // Écrans Clients : liste, fiche, formulaire
 import { db, q } from '../db.js';
-import { esc, titre, toast, aller, surEnvoi, tenter, lireMontant, STATUTS } from '../utils.js';
+import { esc, euros, titre, toast, aller, surEnvoi, tenter, lireMontant, totaux, classeMarge } from '../utils.js';
+import { ligneChantier } from './chantiers.js';
 
 export async function liste(main) {
   titre('Clients');
@@ -8,10 +9,11 @@ export async function liste(main) {
 
   main.innerHTML = `
     <a class="btn principal" href="#/client/nouveau">+ Nouveau client</a>
-    ${clients.length > 4 ? `<input type="search" id="recherche" placeholder="Rechercher…">` : ''}
+    ${clients.length > 4 ? `<input type="search" id="recherche" placeholder="🔍 Rechercher un client, un bateau…">` : ''}
     <div class="liste" id="liste-clients">
       ${clients.map(c => `
         <a class="ligne" href="#/client/${c.id}" data-texte="${esc(`${c.nom} ${c.bateau || ''} ${c.port || ''}`.toLowerCase())}">
+          <span class="pastille" style="font-size:17px;font-weight:700;color:var(--marine-2)">${esc(initiales(c.nom))}</span>
           <div>
             <strong>${esc(c.nom)}</strong>
             <small>${esc([c.bateau, c.port].filter(Boolean).join(' · '))}</small>
@@ -29,8 +31,13 @@ export async function liste(main) {
   };
 }
 
+function initiales(nom) {
+  return nom.split(/\s+/).filter(m => m && !/^(m\.?|mme\.?|mr\.?)$/i.test(m)).slice(0, 2).map(m => m[0].toUpperCase()).join('') || '?';
+}
+
 export async function fiche(main, { id }) {
-  const c = await q(db.from('clients').select('*, chantiers(id, nom, statut)').eq('id', id).single());
+  const c = await q(db.from('clients')
+    .select('*, chantiers(id, nom, statut, created_at, mouvements(sens, montant))').eq('id', id).single());
   titre(c.nom, '/clients');
 
   const trajet = c.trajet_destination
@@ -47,22 +54,43 @@ export async function fiche(main, { id }) {
     ['Notes', esc(c.notes)],
   ].filter(([, v]) => v);
 
+  // Boutons d'action en un toucher
+  const tel = (c.telephone || '').replace(/[^\d+]/g, '');
+  const lieu = c.port || c.adresse;
+  const actions = [
+    tel && ['📞', 'Appeler', `tel:${tel}`],
+    tel && ['💬', 'Message', `sms:${tel}`],
+    c.email && ['✉️', 'Email', `mailto:${c.email}`],
+    lieu && ['📍', 'Itinéraire', `https://maps.apple.com/?daddr=${encodeURIComponent(lieu)}`],
+    ['📅', 'Rendez-vous', `#/calendrier?client=${c.id}`],
+  ].filter(Boolean);
+
+  const chantiers = (c.chantiers || []).sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const t = totaux(chantiers.flatMap(ch => ch.mouvements || []));
+
   main.innerHTML = `
+    <div class="actions" style="grid-template-columns:repeat(${Math.min(actions.length, 3)},1fr);margin:0 0 12px">
+      ${actions.map(([icone, nom, lien]) => `<a class="btn" href="${esc(lien)}"><span>${icone}</span>${nom}</a>`).join('')}
+    </div>
+
     <div class="carte">
       ${infos.map(([k, v]) => `<div class="info"><span>${k}</span><div>${v}</div></div>`).join('')
         || '<p class="vide">Pas d\'informations.</p>'}
     </div>
-    <a class="btn" href="#/client/${c.id}/modifier">Modifier la fiche</a>
+
+    ${chantiers.length ? `
+    <div class="totaux">
+      <div><span>Chiffre d'affaires</span><strong class="pos">${euros(t.gains)}</strong></div>
+      <div><span>Dépenses</span><strong class="neg">${euros(t.depenses)}</strong></div>
+      <div><span>Marge</span><strong class="${classeMarge(t.marge)}">${euros(t.marge)}</strong></div>
+    </div>` : ''}
 
     <h2>Chantiers</h2>
     <a class="btn principal" href="#/chantier/nouveau?client=${c.id}">+ Nouveau chantier</a>
     <div class="liste">
-      ${c.chantiers.map(ch => `
-        <a class="ligne" href="#/chantier/${ch.id}">
-          <strong>${esc(ch.nom)}</strong>
-          <span class="statut ${ch.statut}">${STATUTS[ch.statut]}</span>
-        </a>`).join('') || '<p class="vide">Aucun chantier.</p>'}
-    </div>`;
+      ${chantiers.map(ligneChantier).join('') || '<p class="vide">Aucun chantier.</p>'}
+    </div>
+    <a class="btn lien" href="#/client/${c.id}/modifier">✏️ Modifier ou supprimer la fiche</a>`;
 }
 
 export async function formulaire(main, { id }) {

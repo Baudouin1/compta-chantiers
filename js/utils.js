@@ -23,6 +23,16 @@ export const CATEGORIES = {
   },
 };
 
+// Petite icône affichée devant chaque mouvement
+export const ICONES = {
+  depense: { achat_fournisseur: '🛒', produits: '🧴', pieces: '⚙️', sous_traitance: '🤝', deplacement: '🚗', autre: '📦' },
+  gain: { facture: '🧾', acompte: '💶', autre: '💰' },
+};
+
+export function iconeCategorie(sens, cat) {
+  return ICONES[sens]?.[cat] || (sens === 'gain' ? '💰' : '📦');
+}
+
 export function nomCategorie(sens, cat) {
   return CATEGORIES[sens]?.[cat] || cat;
 }
@@ -104,11 +114,11 @@ export function aller(chemin) {
   location.hash = chemin;
 }
 
-// Titre en haut de l'écran, avec un bouton retour si besoin
+// Titre en haut de l'écran : bouton retour si besoin, sinon le logo
 export function titre(texte, retour = null) {
   const entete = document.getElementById('entete');
   entete.innerHTML = `
-    ${retour ? `<button class="retour" aria-label="Retour">‹</button>` : ''}
+    ${retour ? `<button class="retour" aria-label="Retour">‹</button>` : '<img class="logo-entete" src="icons/icon-192.png" alt="">'}
     <h1>${esc(texte)}</h1>`;
   if (retour) entete.querySelector('.retour').onclick = () => { location.hash = retour; };
 }

@@ -12,7 +12,8 @@ Petite appli (PWA) pour suivre les dépenses et les gains par chantier.
 | `js/config.js` | **Adresse et clé Supabase** |
 | `js/app.js` | Démarrage, connexion, liste des écrans |
 | `js/utils.js` | Catégories, statuts, formats (€, dates), totaux |
-| `js/pages/*.js` | Un fichier par écran (accueil, chantiers, clients, mouvements, déplacement, export, calendrier, réglages) |
+| `js/pages/*.js` | Un fichier par écran (accueil, bilan, chantiers, clients, mouvements, frais généraux, déplacement, export, calendrier, réglages, aide) |
+| `js/pages/aide.js` | Le guide d'utilisation : facile à compléter (liste RUBRIQUES) |
 | `api/ics.js` | Fabrique l'événement pour le calendrier de l'iPhone (fonction Vercel) |
 | `supabase/schema.sql` | Création des tables (à coller dans Supabase > SQL Editor) |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Ce qui rend l'appli installable |

@@ -21,6 +21,7 @@ export function afficher(main) {
     }[mode];
 
     main.innerHTML = `
+      <img class="logo-connexion" src="icons/logo.png" alt="BluePrestige">
       <form class="carte" id="form-connexion">
         <h2>${textes[0]}</h2>
         ${mode === 'oubli' ? '<p class="aide">Tu vas recevoir un email avec un lien pour choisir un nouveau mot de passe.</p>' : ''}
