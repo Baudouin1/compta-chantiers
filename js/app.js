@@ -84,6 +84,8 @@ async function afficherEcran() {
   nav.querySelectorAll('a').forEach(a => a.classList.toggle('actif', a.dataset.onglet === onglet));
   // Sur les formulaires, on cache la barre du bas pour ne pas gêner la saisie
   document.body.classList.toggle('sans-onglets', estFormulaire(chemin));
+  // On change d'écran : le clavier n'est plus ouvert (sinon la barre reste cachée après un retour en arrière)
+  document.body.classList.remove('saisie');
   main.innerHTML = '<p class="chargement">Chargement…</p>';
   window.scrollTo(0, 0);
   try {
@@ -111,6 +113,8 @@ document.addEventListener('focusin', e => {
   if (e.target.matches('input, textarea, select')) document.body.classList.add('saisie');
 });
 document.addEventListener('focusout', () => document.body.classList.remove('saisie'));
+// Sécurité : si plus aucun champ n'a le curseur, on réaffiche la barre
+window.addEventListener('pageshow', () => document.body.classList.remove('saisie'));
 
 // ---------- Recharger l'appli si elle est restée longtemps en arrière-plan ----------
 // (pour avoir les dernières mises à jour et des totaux à jour)

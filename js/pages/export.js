@@ -98,10 +98,11 @@ export async function partagerFichier(contenu, nomFichier, type) {
   if (navigator.canShare?.({ files: [fichier] })) {
     try {
       await navigator.share({ files: [fichier], title: nomFichier });
+      return;
     } catch (e) {
-      if (e.name !== 'AbortError') throw e; // AbortError = l'utilisateur a fermé le menu
+      if (e.name === 'AbortError') return; // l'utilisateur a fermé le menu de partage
+      // Partage refusé (ex. Chrome sur ordinateur) : on télécharge le fichier à la place
     }
-    return;
   }
   const lien = document.createElement('a');
   lien.href = URL.createObjectURL(fichier);
