@@ -24,6 +24,7 @@ Petite appli (PWA) pour suivre les dépenses et les gains par chantier.
 | `sw.js`, `manifest.webmanifest`, `icons/` | Ce qui rend l'appli installable |
 | `lib/supabase.js` | Bibliothèque Supabase (ne pas modifier) |
 | `lib/xlsx-style.min.js` | Bibliothèque Excel (avec mise en forme) pour la sauvegarde (ne pas modifier) |
+| `js/pages/import.js` | Import d'un ancien Excel de suivi (lecture du format, aperçu, enregistrement) |
 | `js/sauvegarde.js` | Fabrique la sauvegarde Excel mise en forme (couleurs, totaux, onglet Résumé) |
 
 ## Modifier les catégories

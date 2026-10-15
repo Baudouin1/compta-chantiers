@@ -13,6 +13,7 @@ import * as calendrier from './pages/calendrier.js';
 import * as frais from './pages/frais.js';
 import * as bilan from './pages/bilan.js';
 import * as aide from './pages/aide.js';
+import * as importExcel from './pages/import.js';
 
 // Liste des écrans : adresse -> fonction qui affiche l'écran
 const ROUTES = [
@@ -35,6 +36,7 @@ const ROUTES = [
   ['/calendrier', calendrier.formulaire, null],
   ['/reglages', reglages.afficher, 'reglages'],
   ['/reglages/tarifs', reglages.tarifs, 'reglages'],
+  ['/reglages/import', importExcel.afficher, 'reglages'],
   ['/reglages/trajets', reglages.trajets, 'reglages'],
   ['/reglages/trajet/nouveau', reglages.trajetFormulaire, 'reglages'],
   ['/reglages/trajet/:id', reglages.trajetFormulaire, 'reglages'],

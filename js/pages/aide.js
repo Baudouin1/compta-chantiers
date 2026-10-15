@@ -96,6 +96,13 @@ const RUBRIQUES = [
       Le fichier s'ouvre dans Excel.</p>
     <p>Pour une seule intervention : bouton <strong>Exporter (CSV)</strong> en bas de sa page.</p>`],
 
+  ['📥 Reprendre un ancien Excel', `
+    <p><strong>Réglages › Importer un ancien fichier Excel</strong> : choisis ton ancien tableau de suivi
+      (un onglet par client). L'appli montre ce qu'elle a compris (clients, interventions, montants, statuts)
+      et n'enregistre rien avant que tu touches <strong>Importer</strong>.</p>
+    <p class="astuce">À faire une seule fois au début. Si tu importes deux fois le même fichier,
+      les lignes déjà présentes sont ignorées.</p>`],
+
   ['💾 Sauvegarde', `
     <p>Tes données sont enregistrées en ligne : rien n'est perdu si tu changes de téléphone,
       il suffit de te reconnecter.</p>

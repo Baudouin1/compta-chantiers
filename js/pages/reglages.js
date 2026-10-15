@@ -52,6 +52,7 @@ export async function afficher(main) {
       <div class="info"><span>Factures et tickets stockés</span><div id="espace">…</div></div>
       <div class="info"><span>Connecté avec</span><div>${esc(data.user?.email)}</div></div>
     </div>
+    <a class="btn lien" href="#/reglages/import">📥 Importer un ancien fichier Excel</a>
     <button class="btn danger" id="deconnexion">Se déconnecter</button>`;
 
   // Sauvegarde : 1er toucher = on prépare le fichier Excel, 2e toucher = on l'envoie
