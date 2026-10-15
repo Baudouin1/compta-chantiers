@@ -69,7 +69,9 @@ const RUBRIQUES = [
   ['🧮 Micro-entreprise : déclaration URSSAF', `
     <p>Dans <strong>Accueil › Voir le bilan</strong>, la rubrique <em>Chiffre d'affaires à déclarer</em>
       donne le total encaissé par mois et par trimestre : c'est ce montant qu'on déclare à l'URSSAF.</p>
-    <p>Pour le <strong>livre des recettes</strong> : Réglages › Export CSV › « Recettes seulement ».</p>
+    <p>Pour le <strong>livre des recettes</strong> : Réglages › Export CSV › « Recettes seulement ».
+      Chaque recette doit avoir son <strong>mode de paiement</strong> (virement, chèque, espèces…) :
+      l'appli le demande à chaque gain. Mets le numéro de facture dans la description.</p>
     <p class="astuce">Pense à bien saisir chaque paiement reçu (facture, acompte) avec la <strong>date
       où l'argent est arrivé</strong>.</p>`],
 

@@ -74,7 +74,7 @@ export async function afficher(main) {
       zone.innerHTML = '<p class="aide">Préparation…</p>';
       let fichier;
       try {
-        fichier = await fabriquerSauvegarde();
+        fichier = await fabriquerSauvegarde(data.user?.email);
       } catch (err) {
         boutonPreparer();
 

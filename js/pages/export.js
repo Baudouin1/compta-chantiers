@@ -1,6 +1,6 @@
 // Export CSV des mouvements (pour le comptable)
 import { db, q } from '../db.js';
-import { titre, surEnvoi, tenter, aujourdhui, dateFr, dateValide, nomCategorie, STATUTS } from '../utils.js';
+import { titre, surEnvoi, tenter, aujourdhui, dateFr, dateValide, nomCategorie, STATUTS, MODES_PAIEMENT } from '../utils.js';
 
 // Champs demandés à Supabase pour l'export
 export const CHAMPS_EXPORT = '*, chantiers(nom, statut, clients(nom, bateau))';
@@ -75,7 +75,7 @@ export function fabriquerCSV(mouvements) {
     return /[";\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
   };
   const entetes = ['Date', 'Chantier', 'Statut chantier', 'Client', 'Bateau', 'Type', 'Catégorie',
-    'Description', 'Sous-traitant', 'Dépense (€)', 'Recette (€)', 'Refacturable', 'Justificatif', 'Note'];
+    'Description', 'Sous-traitant', 'Dépense (€)', 'Recette (€)', 'Mode de paiement', 'Refacturable', 'Justificatif', 'Note'];
   const lignes = mouvements.map(m => [
     dateFr(m.date),
     m.chantiers?.nom ?? 'Frais généraux',
@@ -88,6 +88,7 @@ export function fabriquerCSV(mouvements) {
     m.sous_traitant,
     m.sens === 'depense' ? nombre(m.montant) : '',
     m.sens === 'gain' ? nombre(m.montant) : '',
+    MODES_PAIEMENT[m.mode_paiement] ?? '',
     m.sens === 'depense' ? (m.refacturable ? 'Oui' : 'Non') : '',
     m.photo_path ? 'Oui' : 'Non',
     m.note,

@@ -1,7 +1,7 @@
 // Écrans Chantiers : liste, page du chantier, formulaire
 import { db, q } from '../db.js';
 import {
-  esc, euros, dateFr, titre, toast, aller, surEnvoi, tenter, dateValide, totaux, classeMarge, nomCategorie, iconeCategorie, STATUTS,
+  esc, euros, dateFr, titre, toast, aller, surEnvoi, tenter, dateValide, totaux, classeMarge, nomCategorie, iconeCategorie, STATUTS, MODES_PAIEMENT,
 } from '../utils.js';
 import { partagerCSV } from './export.js';
 import * as justif from '../justificatifs.js';
@@ -166,7 +166,7 @@ export function ligneMouvement(m) {
       <span class="pastille ${m.sens}">${iconeCategorie(m.sens, m.categorie)}</span>
       <div>
         <strong>${esc(m.description || nomCategorie(m.sens, m.categorie))}</strong>
-        <small>${dateFr(m.date)} · ${esc(nomCategorie(m.sens, m.categorie))}${m.sous_traitant ? ' · ' + esc(m.sous_traitant) : ''}</small>
+        <small>${dateFr(m.date)} · ${esc(nomCategorie(m.sens, m.categorie))}${m.sous_traitant ? ' · ' + esc(m.sous_traitant) : ''}${m.mode_paiement ? ' · ' + MODES_PAIEMENT[m.mode_paiement] : ''}</small>
         ${m.refacturable ? '<span class="badge">À refacturer</span>' : ''}
         ${m.photo_path ? '<span class="badge justif-badge">📎 Justificatif</span>' : ''}
       </div>

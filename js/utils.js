@@ -23,6 +23,15 @@ export const CATEGORIES = {
   },
 };
 
+// Modes de paiement (obligatoires dans le livre des recettes d'une micro-entreprise)
+export const MODES_PAIEMENT = {
+  virement: 'Virement',
+  cheque: 'Chèque',
+  especes: 'Espèces',
+  carte: 'Carte bancaire',
+  autre: 'Autre',
+};
+
 // Petite icône affichée devant chaque mouvement
 export const ICONES = {
   depense: { achat_fournisseur: '🛒', produits: '🧴', pieces: '⚙️', sous_traitance: '🤝', deplacement: '🚗', autre: '📦' },
@@ -201,6 +210,7 @@ export function titre(texte, retour = null) {
 export function erreurLisible(err) {
   const m = err?.message || String(err);
   if (/failed to fetch|network|load failed/i.test(m)) return 'Pas de connexion internet. Réessaie quand tu as du réseau.';
+  if (/mode_paiement/i.test(m)) return 'La base doit être mise à jour pour le mode de paiement (script Supabase « mode_paiement.sql » à lancer).';
   if (/foreign key|violates/i.test(m)) return 'Opération impossible : des éléments liés existent encore.';
   if (/JWT|token|not authenticated/i.test(m)) return 'Session expirée : déconnecte-toi puis reconnecte-toi.';
   return m;

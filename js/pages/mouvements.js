@@ -1,6 +1,6 @@
 // Formulaire d'ajout / modification d'un mouvement (dépense ou gain)
 import { db, q } from '../db.js';
-import { esc, titre, toast, aller, surEnvoi, tenter, dateValide, lireMontant, aujourdhui, iconeCategorie, CATEGORIES } from '../utils.js';
+import { esc, titre, toast, aller, surEnvoi, tenter, dateValide, lireMontant, aujourdhui, iconeCategorie, CATEGORIES, MODES_PAIEMENT } from '../utils.js';
 import * as justif from '../justificatifs.js';
 
 export async function formulaire(main, { id, query }) {
@@ -33,6 +33,14 @@ export async function formulaire(main, { id, query }) {
 
       <label>Catégorie *
         <select name="categorie" required></select>
+      </label>
+
+      <label id="champ-paiement">Mode de paiement *
+        <select name="mode_paiement">
+          <option value="">— Choisir —</option>
+          ${Object.entries(MODES_PAIEMENT).map(([k, v]) =>
+            `<option value="${k}" ${k === m.mode_paiement ? 'selected' : ''}>${v}</option>`).join('')}
+        </select>
       </label>
 
       <label id="champ-sous-traitant">Nom du sous-traitant
@@ -83,6 +91,7 @@ export async function formulaire(main, { id, query }) {
     select.innerHTML = Object.entries(CATEGORIES[sens])
       .map(([k, v]) => `<option value="${k}" ${k === actuelle ? 'selected' : ''}>${iconeCategorie(sens, k)} ${v}</option>`).join('');
     main.querySelector('#champ-refacturable').hidden = sens !== 'depense';
+    main.querySelector('#champ-paiement').hidden = sens !== 'gain';
     main.querySelector('#champ-sous-traitant').hidden = select.value !== 'sous_traitance';
     form.classList.toggle('mode-gain', sens === 'gain');
   }
@@ -143,7 +152,12 @@ export async function formulaire(main, { id, query }) {
     if (data.categorie === 'sous_traitance' && !data.sous_traitant) {
       throw new Error('Indique le nom du sous-traitant.');
     }
+    if (data.sens === 'gain' && !data.mode_paiement) {
+      throw new Error('Indique le mode de paiement (virement, chèque…) : il est obligatoire dans le livre des recettes.');
+    }
     if (data.sens === 'gain') data.refacturable = false;
+    // Le mode de paiement ne concerne que les recettes
+    if (data.sens === 'depense') { if (!m.mode_paiement) delete data.mode_paiement; else data.mode_paiement = null; }
     if (data.categorie !== 'sous_traitance') data.sous_traitant = null;
 
     const enregistre = id
