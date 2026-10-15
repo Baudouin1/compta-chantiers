@@ -25,9 +25,10 @@ const S = {
   titre: { font: { bold: true, sz: 20, color: { rgb: MARINE } } },
   sousTitre: { font: { italic: true, color: { rgb: GRIS } } },
   section: { font: { bold: true, sz: 13, color: { rgb: BLEU } } },
+  // Titres en haut à gauche : la flèche de tri d'Excel (en bas à droite) ne les cache pas
   entete: {
     font: { bold: true, color: { rgb: BLANC } }, fill: { fgColor: { rgb: MARINE } },
-    alignment: { vertical: 'center', horizontal: 'center', wrapText: true }, border: bordure,
+    alignment: { vertical: 'top', horizontal: 'left', wrapText: true, indent: 0 }, border: bordure,
   },
   total: { font: { bold: true }, fill: { fgColor: { rgb: CIEL } }, border: { top: { style: 'medium', color: { rgb: MARINE } } } },
   carteLabel: { font: { sz: 10, color: { rgb: BLANC } }, fill: { fgColor: { rgb: BLEU } }, alignment: { horizontal: 'center' } },
@@ -103,8 +104,8 @@ class Feuille {
     // Largeur : assez pour le titre (sur 2 lignes max) + la flèche de tri, et pour les valeurs
     colonnes.forEach((col, c) => {
       const titre = String(col.titre);
-      const motLePlusLong = Math.max(...titre.split(/[\s-]+/).map(m => m.length));
-      const pourTitre = Math.max(motLePlusLong, Math.ceil(titre.length / 2)) + (filtre ? 5 : 2);
+      // Le titre tient sur une ligne, plus la place de la flèche de tri
+      const pourTitre = Math.min(28, titre.length + (filtre ? 6 : 3));
       const pourValeurs = col.retour ? 0 : Math.min(40, Math.max(0, ...lignes.map(l => {
         const v = col.val(l);
         if (v == null || v === '') return 0;
@@ -113,7 +114,7 @@ class Feuille {
       const largeur = Math.max(col.largeur || 10, pourTitre, pourValeurs);
       this.largeurs[c] = { wch: Math.max(this.largeurs[c]?.wch || 0, largeur), hidden: !!col.cache };
     });
-    this.hauteurs[r0] = 34;
+    this.hauteurs[r0] = filtre ? 36 : 22; // assez haut pour que la flèche soit sous le titre
     return fin;
   }
   // Une "carte" chiffre clé : libellé au-dessus, gros chiffre en dessous
