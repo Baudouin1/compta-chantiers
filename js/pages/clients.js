@@ -45,7 +45,7 @@ export async function fiche(main, { id }) {
     q(db.from('clients').select('*, chantiers(*, mouvements(sens, montant, refacturable))').eq('id', id).single()),
     tarifsGeneraux(),
   ]);
-  titre(c.nom, '/clients');
+  titre(c.nom, '/clients', { texte: '✏️ Modifier', lien: `/client/${c.id}/modifier` });
   const tarifs = tarifsClient(c, generaux);
   const mode = c.mode_facturation || 'heure';
 
@@ -120,10 +120,16 @@ export async function fiche(main, { id }) {
 
     <h2>Interventions</h2>
     <a class="btn principal" href="#/chantier/nouveau?client=${c.id}">+ Nouvelle intervention</a>
-    <div class="liste">
-      ${chantiers.map(ch => ligneChantier(ch, { sansClient: true })).join('') || '<p class="vide">Aucune intervention.</p>'}
+    <div class="liste" id="liste-interventions">
+      ${chantiers.slice(0, 10).map(ch => ligneChantier(ch, { sansClient: true })).join('') || '<p class="vide">Aucune intervention.</p>'}
     </div>
-    <a class="btn lien" href="#/client/${c.id}/modifier">✏️ Modifier ou supprimer la fiche</a>`;
+    ${chantiers.length > 10 ? `<button class="btn" id="voir-tout">Voir les ${chantiers.length} interventions</button>` : ''}`;
+
+  const voirTout = main.querySelector('#voir-tout');
+  if (voirTout) voirTout.onclick = () => {
+    main.querySelector('#liste-interventions').innerHTML = chantiers.map(ch => ligneChantier(ch, { sansClient: true })).join('');
+    voirTout.remove();
+  };
 
   const iti = main.querySelector('[href="#itineraire"]');
   if (iti) iti.onclick = e => {

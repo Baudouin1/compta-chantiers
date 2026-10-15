@@ -90,7 +90,7 @@ export async function fiche(main, { id }) {
     q(db.from('chantiers').select('*, clients(*), mouvements(*)').eq('id', id).single()),
     q(db.from('boutons_rapides').select('*').order('libelle')),
   ]);
-  titre(c.nom, '/chantiers');
+  titre(c.nom, '/chantiers', { texte: '✏️ Modifier', lien: `/chantier/${c.id}/modifier` });
   const r = calculer(c);
   const mvts = c.mouvements.sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at));
   const avecJustif = mvts.filter(m => m.photo_path);
@@ -193,8 +193,7 @@ export async function fiche(main, { id }) {
     <div class="actions">
       <a class="btn" href="#/calendrier?chantier=${c.id}"><span>📅</span>Ajouter au calendrier</a>
       <button class="btn" id="export" ${mvts.length ? '' : 'disabled'}><span>📄</span>Exporter (CSV)</button>
-    </div>
-    <a class="btn lien" href="#/chantier/${c.id}/modifier">✏️ Modifier ou supprimer</a>`;
+    </div>`;
 
   main.querySelectorAll('[data-justif]').forEach(b => b.onclick = () => tenter(() => justif.ouvrir(b.dataset.justif)));
 

@@ -247,11 +247,13 @@ function revenir(parent) {
 }
 
 // Titre en haut de l'écran : bouton retour si besoin, sinon le logo
-export function titre(texte, retour = null) {
+// action (facultatif) : bouton en haut à droite, ex. { texte: '✏️ Modifier', lien: '/client/12/modifier' }
+export function titre(texte, retour = null, action = null) {
   const entete = document.getElementById('entete');
   entete.innerHTML = `
     ${retour ? `<button class="retour" aria-label="Retour">‹</button>` : '<img class="logo-entete" src="icons/icon-192.png" alt="">'}
-    <h1>${esc(texte)}</h1>`;
+    <h1>${esc(texte)}</h1>
+    ${action ? `<a class="action-entete" href="#${esc(action.lien)}">${action.texte}</a>` : ''}`;
   if (retour) entete.querySelector('.retour').onclick = () => revenir(retour);
 }
 

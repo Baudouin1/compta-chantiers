@@ -396,3 +396,12 @@ details.carte p, details.carte ul { line-height: 1.45; font-size: 15.5px; }
 .plus-options > summary { font-weight: 600; color: var(--marine-2); padding: 10px 0; cursor: pointer; font-size: 16px; }
 label small.aide { display: block; margin-top: 5px; font-weight: 400; font-size: 13.5px; }
 .apercu small strong { font-size: inherit; color: var(--vert); }
+
+/* Bouton d'action en haut à droite (Modifier) */
+.action-entete {
+  margin-left: auto; flex: none; white-space: nowrap;
+  background: rgba(255,255,255,.16); color: #fff; text-decoration: none;
+  padding: 8px 12px; border-radius: 20px; font-size: 15px; font-weight: 600;
+}
+.action-entete:active { background: rgba(255,255,255,.3); }
+#entete h1 { flex: 1; min-width: 0; }
