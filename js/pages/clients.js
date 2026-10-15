@@ -1,6 +1,6 @@
 // Écrans Clients : liste, fiche, formulaire
 import { db, q } from '../db.js';
-import { esc, euros, titre, toast, aller, surEnvoi, lireMontant, STATUTS } from '../utils.js';
+import { esc, titre, toast, aller, surEnvoi, tenter, lireMontant, STATUTS } from '../utils.js';
 
 export async function liste(main) {
   titre('Clients');
@@ -34,7 +34,7 @@ export async function fiche(main, { id }) {
   titre(c.nom, '/clients');
 
   const trajet = c.trajet_destination
-    ? `${esc(c.trajet_destination)} — ${c.trajet_forfait != null ? euros(c.trajet_forfait) + ' (forfait)' : (c.trajet_km ?? '?') + ' km aller-retour'}`
+    ? `${esc(c.trajet_destination)}${c.trajet_km != null ? ` — ${String(c.trajet_km).replace('.', ',')} km aller-retour` : ''}`
     : '';
 
   const infos = [
@@ -87,18 +87,25 @@ export async function formulaire(main, { id }) {
       </label>
 
       <h3>Trajet par défaut</h3>
-      <p class="aide">Utilisé par le bouton « Aller-retour ». Remplis les km OU un coût forfaitaire.</p>
+      <p class="aide">Utilisé par le bouton « Aller-retour ». Le coût au km se règle dans Réglages.</p>
       ${champ('trajet_destination', 'Destination (ex. Port de Lorient)')}
       ${champ('trajet_km', 'Distance aller-retour (km)', 'text', 'inputmode="decimal"')}
-      ${champ('trajet_forfait', 'OU coût forfaitaire (€)', 'text', 'inputmode="decimal"')}
 
       <button class="btn principal" type="submit">Enregistrer</button>
     </form>
     ${id ? '<button class="btn danger" id="supprimer">Supprimer ce client</button>' : ''}`;
 
   surEnvoi(main.querySelector('#form-client'), async data => {
-    data.trajet_km = data.trajet_km ? lireMontant(data.trajet_km) : null;
-    data.trajet_forfait = data.trajet_forfait ? lireMontant(data.trajet_forfait) : null;
+    if (!data.nom) throw new Error('Le nom est obligatoire.');
+    if (data.telephone && !/^\+?[\d\s.\-()]{6,20}$/.test(data.telephone)) {
+      throw new Error('Numéro de téléphone invalide.');
+    }
+    if (data.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(data.email)) throw new Error('Adresse email invalide.');
+    if (data.trajet_km) {
+      data.trajet_km = lireMontant(data.trajet_km);
+      if (!data.trajet_km || data.trajet_km > 5000) throw new Error('Distance invalide (en km, ex. 42 ou 42,5).');
+    }
+    if (data.trajet_km && !data.trajet_destination) data.trajet_destination = data.port || 'Aller-retour';
 
     const res = id
       ? await q(db.from('clients').update(data).eq('id', id).select().single())
@@ -108,11 +115,12 @@ export async function formulaire(main, { id }) {
   });
 
   const suppr = main.querySelector('#supprimer');
-  if (suppr) suppr.onclick = async () => {
+  if (suppr) suppr.onclick = () => tenter(async () => {
     if (!confirm('Supprimer ce client ?')) return;
-    const { error } = await db.from('clients').delete().eq('id', id);
-    if (error) return alert("Impossible : ce client a encore des chantiers. Supprime d'abord ses chantiers.");
+    const { count } = await db.from('chantiers').select('id', { count: 'exact', head: true }).eq('client_id', id);
+    if (count) throw new Error(`Impossible : ce client a encore ${count} chantier(s). Supprime-les d'abord.`);
+    await q(db.from('clients').delete().eq('id', id));
     toast('Client supprimé');
     aller('/clients');
-  };
+  });
 }

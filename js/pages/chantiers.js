@@ -1,7 +1,7 @@
 // Écrans Chantiers : liste, page du chantier, formulaire
 import { db, q } from '../db.js';
 import {
-  esc, euros, dateFr, titre, toast, aller, surEnvoi, totaux, classeMarge, nomCategorie, STATUTS,
+  esc, euros, dateFr, titre, toast, aller, surEnvoi, tenter, dateValide, totaux, classeMarge, nomCategorie, STATUTS,
 } from '../utils.js';
 
 let filtreStatut = 'en_cours';
@@ -82,11 +82,18 @@ export async function fiche(main, { id }) {
 
     <a class="btn" href="#/chantier/${c.id}/modifier">Modifier le chantier</a>`;
 
-  main.querySelector('#statut').onchange = async e => {
-    await q(db.from('chantiers').update({ statut: e.target.value }).eq('id', id));
-    e.target.className = 'statut-select ' + e.target.value;
+  const selectStatut = main.querySelector('#statut');
+  selectStatut.onchange = () => tenter(async () => {
+    try {
+      await q(db.from('chantiers').update({ statut: selectStatut.value }).eq('id', id));
+    } catch (err) {
+      selectStatut.value = c.statut; // on remet l'ancien statut si l'enregistrement a échoué
+      throw err;
+    }
+    c.statut = selectStatut.value;
+    selectStatut.className = 'statut-select ' + c.statut;
     toast('Statut mis à jour');
-  };
+  });
 }
 
 // Une ligne de mouvement (dépense ou gain)
@@ -145,7 +152,20 @@ export async function formulaire(main, { id, query }) {
     </form>
     ${id ? '<button class="btn danger" id="supprimer">Supprimer ce chantier</button>' : ''}`;
 
-  surEnvoi(main.querySelector('#form-chantier'), async data => {
+  // La date de fin ne peut pas être avant la date de début
+  const form = main.querySelector('#form-chantier');
+  const majMin = () => { form.date_fin.min = form.date_debut.value || ''; };
+  form.date_debut.onchange = majMin;
+  majMin();
+
+  surEnvoi(form, async data => {
+    if (!data.client_id) throw new Error('Choisis un client.');
+    if (!data.nom) throw new Error('Le nom du chantier est obligatoire.');
+    if (data.date_debut && !dateValide(data.date_debut)) throw new Error('Date de début invalide.');
+    if (data.date_fin && !dateValide(data.date_fin)) throw new Error('Date de fin invalide.');
+    if (data.date_debut && data.date_fin && data.date_fin < data.date_debut) {
+      throw new Error('La date de fin ne peut pas être avant la date de début.');
+    }
     const res = id
       ? await q(db.from('chantiers').update(data).eq('id', id).select().single())
       : await q(db.from('chantiers').insert(data).select().single());
@@ -154,10 +174,10 @@ export async function formulaire(main, { id, query }) {
   });
 
   const suppr = main.querySelector('#supprimer');
-  if (suppr) suppr.onclick = async () => {
+  if (suppr) suppr.onclick = () => tenter(async () => {
     if (!confirm('Supprimer ce chantier ET tous ses mouvements ?')) return;
     await q(db.from('chantiers').delete().eq('id', id));
     toast('Chantier supprimé');
     aller('/chantiers');
-  };
+  });
 }

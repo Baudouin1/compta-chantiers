@@ -1,6 +1,6 @@
 // Formulaire d'ajout / modification d'un mouvement (dépense ou gain)
 import { db, q } from '../db.js';
-import { esc, titre, toast, aller, surEnvoi, lireMontant, aujourdhui, CATEGORIES } from '../utils.js';
+import { esc, titre, toast, aller, surEnvoi, tenter, dateValide, lireMontant, aujourdhui, CATEGORIES } from '../utils.js';
 
 export async function formulaire(main, { id, query }) {
   const [m, chantiers] = await Promise.all([
@@ -28,7 +28,7 @@ export async function formulaire(main, { id, query }) {
       </label>
 
       <label id="champ-sous-traitant">Nom du sous-traitant
-        <input name="sous_traitant" value="${esc(m.sous_traitant ?? '')}">
+        <input name="sous_traitant" placeholder="ex. Voilerie Martin" value="${esc(m.sous_traitant ?? '')}">
       </label>
 
       <label>Description
@@ -80,7 +80,12 @@ export async function formulaire(main, { id, query }) {
 
   surEnvoi(form, async data => {
     data.montant = lireMontant(data.montant);
-    if (data.montant == null) throw new Error('Montant invalide');
+    if (!data.montant) throw new Error('Montant invalide (ex. 45 ou 45,90).');
+    if (data.montant > 1000000) throw new Error('Montant trop élevé, vérifie la saisie.');
+    if (!dateValide(data.date)) throw new Error('Date invalide.');
+    if (data.categorie === 'sous_traitance' && !data.sous_traitant) {
+      throw new Error('Indique le nom du sous-traitant.');
+    }
     if (data.sens === 'gain') data.refacturable = false;
     if (data.categorie !== 'sous_traitance') data.sous_traitant = null;
 
@@ -91,10 +96,10 @@ export async function formulaire(main, { id, query }) {
   });
 
   const suppr = main.querySelector('#supprimer');
-  if (suppr) suppr.onclick = async () => {
+  if (suppr) suppr.onclick = () => tenter(async () => {
     if (!confirm('Supprimer ce mouvement ?')) return;
     await q(db.from('mouvements').delete().eq('id', id));
     toast('Supprimé');
     aller(retour);
-  };
+  });
 }

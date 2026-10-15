@@ -1,6 +1,6 @@
 // Point d'entrée de l'appli : connexion, navigation entre les écrans, installation
 import { db } from './db.js';
-import { esc, titre } from './utils.js';
+import { esc, titre, erreurLisible } from './utils.js';
 import * as connexion from './pages/connexion.js';
 import * as accueil from './pages/accueil.js';
 import * as chantiers from './pages/chantiers.js';
@@ -26,6 +26,10 @@ const ROUTES = [
 
 const main = document.getElementById('page');
 const nav = document.getElementById('onglets');
+
+function estFormulaire(chemin) {
+  return /\/(nouveau|modifier)$/.test(chemin) || chemin.startsWith('/mouvement/');
+}
 
 function trouverRoute(chemin) {
   for (const [modele, fn, onglet] of ROUTES) {
@@ -53,13 +57,15 @@ async function afficherEcran() {
   params.query = Object.fromEntries(new URLSearchParams(recherche || ''));
 
   nav.querySelectorAll('a').forEach(a => a.classList.toggle('actif', a.dataset.onglet === onglet));
+  // Sur les formulaires, on cache la barre du bas pour ne pas gêner la saisie
+  document.body.classList.toggle('sans-onglets', estFormulaire(chemin));
   main.innerHTML = '<p class="chargement">Chargement…</p>';
   window.scrollTo(0, 0);
   try {
     await fn(main, params);
   } catch (e) {
-    main.innerHTML = `<div class="carte erreur">Erreur : ${esc(e.message)}<br><br>
-      Vérifie ta connexion internet puis réessaie.</div>`;
+    main.innerHTML = `<div class="carte erreur">${esc(erreurLisible(e))}</div>
+      <button class="btn" onclick="location.reload()">Réessayer</button>`;
   }
 }
 
@@ -74,6 +80,24 @@ db.auth.onAuthStateChange((_evenement, s) => {
 const { data } = await db.auth.getSession();
 session = data.session;
 afficherEcran();
+
+// ---------- Barre du bas cachée pendant qu'on tape au clavier ----------
+document.addEventListener('focusin', e => {
+  if (e.target.matches('input, textarea, select')) document.body.classList.add('saisie');
+});
+document.addEventListener('focusout', () => document.body.classList.remove('saisie'));
+
+// ---------- Recharger l'appli si elle est restée longtemps en arrière-plan ----------
+// (pour avoir les dernières mises à jour et des totaux à jour)
+// On ne le fait pas sur un formulaire pour ne pas perdre une saisie en cours.
+let cacheeDepuis = null;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return (cacheeDepuis = Date.now());
+  const chemin = (location.hash.slice(1) || '/').split('?')[0];
+  if (cacheeDepuis && Date.now() - cacheeDepuis > 30 * 60 * 1000 && !estFormulaire(chemin)) {
+    location.reload();
+  }
+});
 
 // ---------- Bandeau "Installer sur iPhone" ----------
 const estIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);

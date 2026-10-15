@@ -45,10 +45,12 @@ export function aujourdhui() {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 }
 
-// Lit un montant tapé au clavier ("12,50" ou "12.50")
+// Lit un nombre tapé au clavier ("12,50", "12.50", "1 234,5 €")
+// Renvoie null si ce n'est pas un nombre valide (lettres, plusieurs virgules, négatif…)
 export function lireMontant(texte) {
-  const n = parseFloat(String(texte).replace(/\s/g, '').replace(',', '.'));
-  return isNaN(n) ? null : Math.round(n * 100) / 100;
+  const t = String(texte ?? '').replace(/[\s€]/g, '').replace(',', '.');
+  if (!/^\d+(\.\d{1,2})?$/.test(t)) return null;
+  return Number(t);
 }
 
 // Protège le texte avant de l'afficher dans la page
@@ -111,18 +113,40 @@ export function titre(texte, retour = null) {
   if (retour) entete.querySelector('.retour').onclick = () => { location.hash = retour; };
 }
 
-// Gère l'envoi d'un formulaire : bloque le double clic et affiche les erreurs
+// Traduit les erreurs techniques en message compréhensible
+export function erreurLisible(err) {
+  const m = err?.message || String(err);
+  if (/failed to fetch|network|load failed/i.test(m)) return 'Pas de connexion internet. Réessaie quand tu as du réseau.';
+  if (/foreign key|violates/i.test(m)) return 'Opération impossible : des éléments liés existent encore.';
+  if (/JWT|token|not authenticated/i.test(m)) return 'Session expirée : déconnecte-toi puis reconnecte-toi.';
+  return m;
+}
+
+// Lance une action et affiche un message clair en cas de problème
+export async function tenter(fn) {
+  try {
+    return await fn();
+  } catch (err) {
+    console.error(err);
+    alert(erreurLisible(err));
+  }
+}
+
+// Gère l'envoi d'un formulaire : bloque le double clic et affiche les erreurs.
+// Dans fn, faire "throw new Error('message')" pour refuser la saisie avec un message.
 export function surEnvoi(form, fn) {
   form.onsubmit = async e => {
     e.preventDefault();
     const bouton = form.querySelector('[type=submit]');
     if (bouton) bouton.disabled = true;
-    try {
-      await fn(lireFormulaire(form));
-    } catch (err) {
-      alert('Erreur : ' + err.message);
-    } finally {
-      if (bouton) bouton.disabled = false;
-    }
+    await tenter(() => fn(lireFormulaire(form)));
+    if (bouton) bouton.disabled = false;
   };
+}
+
+// Vérifie une date "AAAA-MM-JJ" (année raisonnable)
+export function dateValide(iso) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || '')) return false;
+  const annee = Number(iso.slice(0, 4));
+  return annee >= 2000 && annee <= 2100;
 }

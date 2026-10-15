@@ -57,6 +57,8 @@ h3 { font-size: 16px; margin: 20px 0 4px; }
 }
 #onglets a span { display: block; font-size: 24px; margin-bottom: 2px; }
 #onglets a.actif { color: var(--marine); font-weight: 600; }
+body.sans-onglets #onglets, body.saisie #onglets { display: none; }
+body.sans-onglets { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 
 /* ---------- Cartes, listes ---------- */
 .carte {
@@ -192,7 +194,7 @@ label.case input { width: 26px; min-height: 26px; height: 26px; margin: 0; -webk
 /* ---------- Message temporaire ---------- */
 .toast {
   position: fixed; left: 50%; transform: translateX(-50%);
-  bottom: calc(90px + env(safe-area-inset-bottom)); z-index: 20;
+  bottom: calc(90px + env(safe-area-inset-bottom)); z-index: 20; pointer-events: none;
   background: #222; color: #fff; padding: 12px 20px; border-radius: 30px;
   font-size: 15px; box-shadow: 0 4px 12px rgba(0,0,0,.25);
 }
