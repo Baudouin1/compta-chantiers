@@ -1,0 +1,199 @@
+/* ---------- Couleurs (modifiables ici) ---------- */
+:root {
+  --fond: #f2f4f7;
+  --carte: #ffffff;
+  --texte: #1a2330;
+  --gris: #6b7685;
+  --bord: #dde2e8;
+  --marine: #0b4f6c;
+  --rouge: #c62828;
+  --vert: #2e7d32;
+  --orange: #e08a00;
+  --rayon: 14px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 17px;
+  background: var(--fond);
+  color: var(--texte);
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+}
+
+a { color: var(--marine); }
+
+/* ---------- En-tête ---------- */
+#entete {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--marine); color: #fff;
+  padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+  min-height: 56px;
+}
+#entete h1 { font-size: 20px; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#entete .retour {
+  background: none; border: none; color: #fff;
+  font-size: 34px; line-height: 1; padding: 0 12px 4px 0; cursor: pointer;
+}
+
+main { padding: 16px; max-width: 640px; margin: 0 auto; }
+h2 { font-size: 18px; margin: 24px 0 10px; }
+h2.mois { text-transform: capitalize; margin-top: 0; }
+h3 { font-size: 16px; margin: 20px 0 4px; }
+
+/* ---------- Barre d'onglets en bas ---------- */
+#onglets {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
+  display: flex; background: var(--carte); border-top: 1px solid var(--bord);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+#onglets a {
+  flex: 1; text-align: center; padding: 8px 0 10px;
+  font-size: 12px; color: var(--gris); text-decoration: none;
+}
+#onglets a span { display: block; font-size: 24px; margin-bottom: 2px; }
+#onglets a.actif { color: var(--marine); font-weight: 600; }
+
+/* ---------- Cartes, listes ---------- */
+.carte {
+  background: var(--carte); border-radius: var(--rayon);
+  padding: 16px; margin-bottom: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.06);
+}
+.carte.erreur { color: var(--rouge); }
+
+.liste { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.ligne {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--carte); border-radius: var(--rayon);
+  padding: 14px 16px; min-height: 60px;
+  color: inherit; text-decoration: none;
+  box-shadow: 0 1px 2px rgba(0,0,0,.06);
+}
+.ligne:active { background: #e8edf2; }
+.ligne strong { display: block; }
+.ligne small { display: block; color: var(--gris); font-size: 14px; margin-top: 2px; }
+.ligne .fleche { color: var(--gris); font-size: 24px; }
+.montant { font-weight: 700; white-space: nowrap; }
+
+.vide, .chargement, .aide { color: var(--gris); font-size: 15px; }
+.description { white-space: pre-wrap; }
+
+.info { padding: 8px 0; border-bottom: 1px solid var(--bord); }
+.info:last-child { border-bottom: none; }
+.info span { display: block; font-size: 13px; color: var(--gris); }
+.info div { white-space: pre-wrap; }
+
+.pos { color: var(--vert); }
+.neg { color: var(--rouge); }
+
+/* ---------- Totaux ---------- */
+.totaux { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.totaux div {
+  background: var(--carte); border-radius: var(--rayon); padding: 12px 8px; text-align: center;
+  box-shadow: 0 1px 2px rgba(0,0,0,.06);
+}
+.totaux span { display: block; font-size: 13px; color: var(--gris); }
+.totaux strong { font-size: 16px; }
+.a-refacturer {
+  background: #fff4e0; border-radius: var(--rayon); padding: 10px 14px; margin: 0 0 12px;
+}
+
+/* ---------- Statuts ---------- */
+.statut, .badge {
+  display: inline-block; margin-top: 6px; padding: 2px 10px; border-radius: 20px;
+  font-size: 12px; font-weight: 600; background: #e3e7ec; color: var(--gris);
+}
+.statut.devis { background: #e8eaf6; color: #3949ab; }
+.statut.en_cours { background: #fff4e0; color: #b26a00; }
+.statut.termine { background: #e0f2f1; color: #00796b; }
+.statut.paye { background: #e8f5e9; color: var(--vert); }
+.badge { background: #fff4e0; color: #b26a00; }
+
+.client-lien { display: block; font-weight: 600; text-decoration: none; margin-bottom: 10px; }
+.statut-select { font-weight: 600; }
+
+/* ---------- Boutons ---------- */
+.btn {
+  display: block; width: 100%; text-align: center;
+  padding: 16px; margin-bottom: 12px; min-height: 56px;
+  border: 1px solid var(--bord); border-radius: var(--rayon);
+  background: var(--carte); color: var(--marine);
+  font-size: 17px; font-weight: 600; text-decoration: none; cursor: pointer;
+  font-family: inherit;
+}
+.btn:active { opacity: .7; }
+.btn:disabled { opacity: .5; }
+.btn.principal { background: var(--marine); color: #fff; border: none; }
+.btn.depense { background: var(--rouge); color: #fff; border: none; font-size: 19px; }
+.btn.gain { background: var(--vert); color: #fff; border: none; font-size: 19px; }
+.btn.danger { background: none; color: var(--rouge); border-color: transparent; }
+.btn.lien { background: none; border: none; font-weight: 400; }
+
+.deux-boutons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.deux-boutons .btn { margin-bottom: 12px; }
+
+.filtres { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 12px; padding-bottom: 4px; }
+.filtres button {
+  flex: none; padding: 10px 16px; border-radius: 20px;
+  border: 1px solid var(--bord); background: var(--carte);
+  font-size: 15px; font-family: inherit; color: var(--texte);
+}
+.filtres button.actif { background: var(--marine); color: #fff; border-color: var(--marine); }
+
+/* ---------- Formulaires ---------- */
+label { display: block; font-size: 14px; color: var(--gris); margin-bottom: 14px; }
+input, select, textarea {
+  display: block; width: 100%; margin-top: 4px;
+  padding: 12px; min-height: 48px;
+  font-size: 17px; /* 16px minimum sinon l'iPhone zoome */
+  font-family: inherit; color: var(--texte);
+  border: 1px solid var(--bord); border-radius: 10px; background: #fff;
+  -webkit-appearance: none; appearance: none;
+}
+select {
+  background-image: linear-gradient(45deg, transparent 50%, var(--gris) 50%), linear-gradient(135deg, var(--gris) 50%, transparent 50%);
+  background-position: calc(100% - 20px) 50%, calc(100% - 14px) 50%;
+  background-size: 6px 6px; background-repeat: no-repeat; padding-right: 36px;
+}
+input[type=search] { margin-bottom: 12px; }
+.gros-montant { font-size: 28px; font-weight: 700; text-align: right; }
+.cote-a-cote { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cote-a-cote input { min-width: 0; }
+
+label.case { display: flex; align-items: center; gap: 12px; font-size: 17px; color: var(--texte); }
+label.case input { width: 26px; min-height: 26px; height: 26px; margin: 0; -webkit-appearance: checkbox; appearance: auto; }
+
+.segments { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.segments label { margin: 0; }
+.segments input { display: none; }
+.segments span {
+  display: block; text-align: center; padding: 14px; border-radius: 10px;
+  border: 2px solid var(--bord); font-size: 17px; font-weight: 600; color: var(--gris);
+}
+.segments .depense input:checked + span { background: var(--rouge); border-color: var(--rouge); color: #fff; }
+.segments .gain input:checked + span { background: var(--vert); border-color: var(--vert); color: #fff; }
+
+.message { color: var(--marine); background: #e6f1f6; padding: 10px; border-radius: 10px; }
+
+/* ---------- Bandeau installation iPhone ---------- */
+#bandeau-install {
+  display: flex; align-items: flex-start; gap: 10px;
+  background: #fff8e1; border-bottom: 1px solid #f0d58a;
+  padding: 12px 16px; font-size: 15px;
+}
+#bandeau-install p { margin: 0; flex: 1; }
+#bandeau-install button { background: none; border: none; font-size: 20px; padding: 0 4px; color: var(--gris); }
+.icone-partage { vertical-align: -3px; }
+
+/* ---------- Message temporaire ---------- */
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(90px + env(safe-area-inset-bottom)); z-index: 20;
+  background: #222; color: #fff; padding: 12px 20px; border-radius: 30px;
+  font-size: 15px; box-shadow: 0 4px 12px rgba(0,0,0,.25);
+}
