@@ -1,4 +1,4 @@
-// Frais généraux : les mouvements qui ne sont liés à aucun chantier
+// Frais généraux : les mouvements qui ne sont liés à aucune intervention
 import { db, q } from '../db.js';
 import { euros, titre, totaux, classeMarge } from '../utils.js';
 import { ligneMouvement } from './chantiers.js';
@@ -12,7 +12,7 @@ export async function liste(main) {
   const t = totaux(mvts.filter(m => m.date.startsWith(String(annee))));
 
   main.innerHTML = `
-    <p class="aide">Dépenses et gains qui ne sont liés à aucun chantier (assurance, outillage, carburant du véhicule…).</p>
+    <p class="aide">Dépenses et gains qui ne sont liés à aucune intervention (assurance, outillage, carburant du véhicule…).</p>
     <h2 class="mois">Année ${annee}</h2>
     <div class="totaux">
       <div><span>Dépenses</span><strong class="neg">${euros(t.depenses)}</strong></div>

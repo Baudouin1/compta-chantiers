@@ -90,7 +90,10 @@ export function calculer(c) {
     calcule: arrondi(calcule), facture: arrondi(facture), factureManuel: c.montant_facture != null && !nePasFacturer,
     fraisReels: arrondi(fraisReels), benefice: arrondi(benefice),
     tauxHoraireNet: heures > 0 ? arrondi(benefice / heures) : null,
-    margePct: facture > 0 ? benefice / facture : null,
+    // Marge en % comme dans l'ancien Excel : à l'heure (main-d'œuvre − frais) / main-d'œuvre,
+    // sinon (facturé − frais) / facturé
+    margePct: mode === 'heure' && mainOeuvre > 0 ? (mainOeuvre - fraisReels) / mainOeuvre
+      : facture > 0 ? benefice / facture : null,
     // "perte/gain sur consommable" : seulement pour les interventions à l'heure (où on facture des consommables)
     gainConso: mode === 'heure' && consommables ? arrondi(consommables - fraisHorsProduits) : 0,
     encaisse: arrondi(encaisse),
@@ -117,7 +120,23 @@ export function moyennes(chantiers) {
     // Taux horaire net global : bénéfice des interventions avec des heures / total de ces heures
     tauxHoraireNet: avecHeures.length
       ? arrondi(avecHeures.reduce((s, r) => s + r.benefice, 0) / avecHeures.reduce((s, r) => s + r.heures, 0)) : null,
-    margePct: facture > 0 ? benefice / facture : null,
+    // Marge nette moyenne (comme le bloc "Moyenne" de l'ancien Excel)
+    margePct: calc.filter(r => r.margePct != null).length
+      ? calc.filter(r => r.margePct != null).reduce((s, r) => s + r.margePct, 0) / calc.filter(r => r.margePct != null).length
+      : null,
     gainConso: arrondi(total('gainConso')),
+    // Forfait : nombre de passages faits (OUI) et non faits (NON), tous bateaux confondus
+    passagesOui: chantiers.reduce((s, c) => s + (c.bateaux_faits || []).filter(b => b.fait).length, 0),
+    passagesNon: chantiers.reduce((s, c) => s + (c.bateaux_faits || []).filter(b => !b.fait).length, 0),
   };
+}
+
+// Numéro de semaine (norme ISO, comme dans un calendrier) : "2026-10-15" -> 42
+export function numeroSemaine(iso) {
+  if (!iso) return null;
+  const d = new Date(iso + 'T12:00:00Z');
+  const jour = (d.getUTCDay() + 6) % 7;            // lundi = 0
+  d.setUTCDate(d.getUTCDate() - jour + 3);          // jeudi de la même semaine
+  const premierJeudi = new Date(Date.UTC(d.getUTCFullYear(), 0, 4));
+  return 1 + Math.round(((d - premierJeudi) / 86400000 - 3 + ((premierJeudi.getUTCDay() + 6) % 7)) / 7);
 }

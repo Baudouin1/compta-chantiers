@@ -52,7 +52,7 @@ const RUBRIQUES = [
     <ul>
       <li>Les photos sont <strong>allégées automatiquement</strong> (≈ 250 Ko) : assez pour en stocker des milliers.</li>
       <li>Les PDF sont limités à <strong>5 Mo</strong>. Si c'est trop lourd, prends plutôt une photo du document.</li>
-      <li>Sur la page du chantier, la rubrique <strong>📎 Factures et tickets</strong> les regroupe tous.</li>
+      <li>Sur la page de l'intervention, la rubrique <strong>📎 Factures et tickets</strong> les regroupe tous.</li>
       <li>Place utilisée : en bas de <strong>Réglages</strong>.</li>
     </ul>`],
 
@@ -61,16 +61,16 @@ const RUBRIQUES = [
       Tu peux choisir un autre trajet enregistré ou en taper un nouveau (et l'enregistrer pour la prochaine fois).</p>
     <p>Le coût est calculé avec <em>ton coût au km</em> (Réglages › Mes tarifs) : c'est un frais réel.</p>
     <p><strong>Tes propres boutons</strong> (« Péage », « Plein de produits »…) : crée-les dans
-      Réglages › Boutons rapides, ou avec le <strong>＋</strong> sur un chantier.
+      Réglages › Boutons rapides, ou avec le <strong>＋</strong> sur une intervention.
       Ils ouvrent une dépense déjà remplie : il ne reste qu'à vérifier le montant.</p>`],
 
   ['🧾 Frais généraux', `
-    <p>Pour une dépense qui n'est liée à aucun chantier (assurance, outillage, carburant du camion…) :
-      sur l'accueil, touche <strong>− Dépense</strong> et laisse « Aucun (frais généraux) » dans le choix du chantier.
+    <p>Pour une dépense qui n'est liée à aucune intervention (assurance, outillage, carburant du camion…) :
+      sur l'accueil, touche <strong>− Dépense</strong> et laisse « Aucun (frais généraux) » dans le choix de l'intervention.
       Tu les retrouves dans <strong>Accueil › Frais généraux</strong>.</p>`],
 
   ['📅 Calendrier', `
-    <p>Sur un chantier, touche <strong>Ajouter au calendrier</strong>
+    <p>Sur une intervention, touche <strong>Ajouter au calendrier</strong>
       (ou <strong>Rendez-vous</strong> sur une fiche client).
       Choisis « Journée(s) » pour un chantier sur plusieurs jours, ou « Rendez-vous » avec une heure.</p>
     <p>Safari s'ouvre : touche <strong>Autoriser</strong>, puis <strong>Ajouter au calendrier</strong>,
@@ -79,7 +79,7 @@ const RUBRIQUES = [
 
   ['📊 Bilan', `
     <p>Sur l'accueil, touche <strong>Voir le bilan de l'année</strong> : la marge mois par mois,
-      où part l'argent (par catégorie) et tes chantiers les plus rentables.</p>`],
+      où part l'argent (par catégorie) et tes clients les plus rentables.</p>`],
 
   ['🧮 Micro-entreprise : déclaration URSSAF', `
     <p>Dans <strong>Accueil › Voir le bilan</strong>, la rubrique <em>Chiffre d'affaires à déclarer</em>
@@ -94,7 +94,7 @@ const RUBRIQUES = [
     <p><strong>Réglages › Export CSV</strong> : choisis la période (ex. « Mois dernier »),
       touche <em>Préparer le fichier</em> puis <em>Envoyer le fichier</em> (mail, WhatsApp…).
       Le fichier s'ouvre dans Excel.</p>
-    <p>Pour un seul chantier : bouton <strong>Exporter (CSV)</strong> en bas de sa page.</p>`],
+    <p>Pour une seule intervention : bouton <strong>Exporter (CSV)</strong> en bas de sa page.</p>`],
 
   ['💾 Sauvegarde', `
     <p>Tes données sont enregistrées en ligne : rien n'est perdu si tu changes de téléphone,
@@ -117,7 +117,7 @@ const RUBRIQUES = [
 export function afficher(main) {
   titre("Guide d'utilisation", '/reglages');
   main.innerHTML = `
-    <p class="astuce">👋 L'appli sert à suivre ce que te coûte et te rapporte chaque chantier.
+    <p class="astuce">👋 L'appli sert à suivre ce que te coûte et te rapporte chaque intervention.
       Touche une rubrique pour l'ouvrir.</p>
     ${RUBRIQUES.map(([t, contenu], i) => `
       <details class="carte" ${i === 0 ? 'open' : ''}>

@@ -3,7 +3,7 @@
 // Les colonnes "id" (masquées) servent seulement à pouvoir tout remettre en cas de problème.
 import { db, q } from './db.js';
 import { nomCategorie, STATUTS, MODES_PAIEMENT, MODES_FACTURATION, totaux } from './utils.js';
-import { calculer, moyennes, tarifsGeneraux, tarifsClient } from './calculs.js';
+import { calculer, moyennes, tarifsGeneraux, tarifsClient, listeBateaux, numeroSemaine } from './calculs.js';
 
 // ---------- Couleurs et formats ----------
 const MARINE = '0B234D', BLEU = '1A3F7A', CIEL = 'E3F0FA', ZEBRE = 'F7F9FC', BLANC = 'FFFFFF';
@@ -226,6 +226,8 @@ function ongletClient(F, cl, cs, generaux) {
   ].filter(Boolean).join(' · '), S.sousTitre);
 
   const avecForfait = cs.some(c => c.mode_facturation === 'forfait');
+  // Tous les bateaux rencontrés (fiche client + interventions)
+  const bateauxDuClient = [...new Set([...listeBateaux(cl), ...cs.flatMap(c => (c.bateaux_faits || []).map(b => b.nom))])];
   const avecDevis = cs.some(c => c.mode_facturation === 'devis');
   const colonnes = [
     { titre: 'Date', val: c => c.date_debut, format: DATE, largeur: 11 },
@@ -233,7 +235,14 @@ function ongletClient(F, cl, cs, generaux) {
       { titre: 'N° de devis', val: c => c.numero_devis, largeur: 12 },
       { titre: 'Montant du devis', val: c => (c.montant_devis != null ? Number(c.montant_devis) : null), format: EUROS, largeur: 13 },
     ] : []),
-    ...(avecForfait ? [{ titre: 'Bateaux faits', val: c => (c.bateaux_faits || []).filter(b => b.fait).map(b => b.nom).join(', '), largeur: 18 }] : []),
+    // Forfait : n° de semaine, puis pour chaque bateau OUI/NON et ses heures (comme l'onglet RIVIERA SEINE)
+    ...(avecForfait ? [{ titre: 'N° de semaine', val: c => numeroSemaine(c.date_debut), largeur: 9 }] : []),
+    ...(avecForfait ? bateauxDuClient.flatMap(nom => [
+      { titre: nom, val: c => { const b = (c.bateaux_faits || []).find(x => x.nom === nom); return b ? (b.fait ? 'OUI' : 'NON') : ''; },
+        largeur: 10, style: (l, v) => (v === 'OUI' ? { font: { bold: true, color: { rgb: VERT } } } : v === 'NON' ? { font: { bold: true, color: { rgb: ROUGE } } } : {}) },
+      { titre: `Heures ${nom}`, val: c => { const b = (c.bateaux_faits || []).find(x => x.nom === nom); return b?.fait && b.heures ? Math.round(b.heures * 60) / 60 : null; },
+        format: HEURES, total: 'somme', largeur: 10 },
+    ]) : []),
     { titre: 'Heures nettoyage', val: c => c.r.heuresNettoyage || null, format: HEURES, total: 'somme', largeur: 11 },
     { titre: 'Heures entretien', val: c => c.r.heuresEntretien || null, format: HEURES, total: 'somme', largeur: 11 },
     { titre: 'Heures totales', val: c => c.r.heures || null, format: HEURES, total: 'somme', largeur: 11 },
@@ -275,6 +284,7 @@ function ongletClient(F, cl, cs, generaux) {
     ['Total perte / gain sur consommables', m.gainConso, EUROS],
     ['Heures totales', m.heures, HEURES],
     ['Bénéfice net total', m.benefice, EUROS],
+    ...(avecForfait ? [['Nombre de OUI (passages faits)', m.passagesOui], ['Nombre de NON (non faits)', m.passagesNon]] : []),
   ];
   lignes.forEach(([libelle, v, format], i) => {
     F.case(r + 1 + i, 0, libelle, { font: { color: { rgb: GRIS } } });

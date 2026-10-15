@@ -113,7 +113,8 @@ export async function fiche(main, { id }) {
     <div class="carte">
       <div class="info"><span>Bénéfice net moyen par intervention</span><div><strong>${euros(moy.beneficeMoyen)}</strong></div></div>
       <div class="info"><span>Marge nette</span><div><strong>${pct(moy.margePct)}</strong></div></div>
-      <div class="info"><span>Gain / perte sur les consommables</span><div><strong class="${classeMarge(moy.gainConso)}">${euros(moy.gainConso)}</strong></div></div>
+      ${mode === 'forfait' ? `<div class="info"><span>Passages faits / non faits</span><div><strong class="pos">${moy.passagesOui} OUI</strong> · <strong class="neg">${moy.passagesNon} NON</strong></div></div>`
+        : `<div class="info"><span>Gain / perte sur les consommables</span><div><strong class="${classeMarge(moy.gainConso)}">${euros(moy.gainConso)}</strong></div></div>`}
       ${aEncaisser ? `<div class="info"><span>Reste à encaisser</span><div><strong class="neg">${euros(aEncaisser)}</strong></div></div>` : ''}
     </div>` : ''}
 
@@ -229,7 +230,7 @@ export async function formulaire(main, { id }) {
   if (suppr) suppr.onclick = () => tenter(async () => {
     if (!confirm('Supprimer ce client ?')) return;
     const { count } = await db.from('chantiers').select('id', { count: 'exact', head: true }).eq('client_id', id);
-    if (count) throw new Error(`Impossible : ce client a encore ${count} chantier(s). Supprime-les d'abord.`);
+    if (count) throw new Error(`Impossible : ce client a encore ${count} intervention(s). Supprime-les d'abord.`);
     await q(db.from('clients').delete().eq('id', id));
     toast('Client supprimé');
     aller('/clients');

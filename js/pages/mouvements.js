@@ -55,7 +55,7 @@ export async function formulaire(main, { id, query }) {
         <input name="date" type="date" required value="${m.date}">
       </label>
 
-      <label>Chantier
+      <label>Intervention
         <select name="chantier_id">
           <option value="">— Aucun (frais généraux) —</option>
           ${chantiers.map(c => `<option value="${c.id}" ${c.id === m.chantier_id ? 'selected' : ''}>

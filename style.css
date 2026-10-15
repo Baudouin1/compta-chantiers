@@ -392,3 +392,7 @@ details.carte p, details.carte ul { line-height: 1.45; font-size: 15.5px; }
 .duree input { margin: 0; min-width: 0; flex: 1; text-align: center; font-size: 19px; font-weight: 600; padding: 10px 4px; }
 .duree span { color: var(--gris); font-size: 14px; flex: none; }
 .bateau-fait { grid-template-columns: 1fr 170px; }
+.plus-options { margin: 4px 0 16px; border-top: 1px solid var(--bord); padding-top: 6px; }
+.plus-options > summary { font-weight: 600; color: var(--marine-2); padding: 10px 0; cursor: pointer; font-size: 16px; }
+label small.aide { display: block; margin-top: 5px; font-weight: 400; font-size: 13.5px; }
+.apercu small strong { font-size: inherit; color: var(--vert); }

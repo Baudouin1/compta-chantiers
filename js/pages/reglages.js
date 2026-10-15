@@ -156,7 +156,7 @@ export async function trajets(main) {
   const liste = await q(db.from('trajets').select('*').order('destination'));
   main.innerHTML = `
     <a class="btn principal" href="#/reglages/trajet/nouveau">+ Nouveau trajet</a>
-    <p class="aide">Ces trajets sont proposés quand tu touches « Aller-retour » sur un chantier.</p>
+    <p class="aide">Ces trajets sont proposés quand tu touches « Aller-retour » sur une intervention.</p>
     <div class="liste">
       ${liste.map(t => `
         <a class="ligne" href="#/reglages/trajet/${t.id}">
@@ -207,7 +207,7 @@ export async function boutons(main) {
   const liste = await q(db.from('boutons_rapides').select('*').order('libelle'));
   main.innerHTML = `
     <a class="btn principal" href="#/reglages/bouton/nouveau">+ Nouveau bouton</a>
-    <p class="aide">Ces boutons apparaissent sur la page de chaque chantier.
+    <p class="aide">Ces boutons apparaissent sur la page de chaque intervention.
       Ils ouvrent une dépense déjà remplie, dont tu peux changer le montant.</p>
     <div class="liste">
       ${liste.map(b => `

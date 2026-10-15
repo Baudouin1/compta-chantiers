@@ -74,7 +74,7 @@ export function fabriquerCSV(mouvements) {
     const t = String(v ?? '');
     return /[";\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
   };
-  const entetes = ['Date', 'Chantier', 'Statut chantier', 'Client', 'Bateau', 'Type', 'Catégorie',
+  const entetes = ['Date', 'Intervention', 'Statut', 'Client', 'Bateau', 'Type', 'Catégorie',
     'Description', 'Sous-traitant', 'Dépense (€)', 'Recette (€)', 'Mode de paiement', 'Refacturable', 'Justificatif', 'Note'];
   const lignes = mouvements.map(m => [
     dateFr(m.date),

@@ -4,7 +4,7 @@ import {
   esc, euros, dateFr, titre, toast, aller, surEnvoi, tenter, dateValide, classeMarge, nomCategorie, iconeCategorie,
   nombreFr, heuresFr, lireHeures, aujourdhui, champDuree, brancherDurees, STATUTS, PASTILLES_STATUT, MODES_PAIEMENT, MODES_FACTURATION,
 } from '../utils.js';
-import { calculer, tarifsGeneraux, tarifsClient, listeBateaux } from '../calculs.js';
+import { calculer, tarifsGeneraux, tarifsClient, listeBateaux, numeroSemaine } from '../calculs.js';
 import { lireNombre } from './reglages.js';
 import { partagerCSV } from './export.js';
 import * as justif from '../justificatifs.js';
@@ -14,8 +14,11 @@ export const CHAMPS_LISTE = '*, clients(nom, bateau), mouvements(sens, montant, 
 
 let filtreStatut = 'tous';
 
+// Libellé de la dépense créée par le champ "Frais réels" du formulaire
+export const LIBELLE_FRAIS = "Frais réels de l'intervention";
+
 export async function liste(main, { query }) {
-  titre('Chantiers');
+  titre('Interventions');
   if (STATUTS[query.statut]) filtreStatut = query.statut;
   const chantiers = await q(db.from('chantiers').select(CHAMPS_LISTE)
     .order('date_debut', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }));
@@ -124,7 +127,7 @@ export async function fiche(main, { id }) {
       <select id="statut" class="statut-select ${c.statut}">
         ${Object.entries(STATUTS).map(([k, v]) => `<option value="${k}" ${k === c.statut ? 'selected' : ''}>${PASTILLES_STATUT[k]} ${v}</option>`).join('')}
       </select>
-      ${c.date_debut ? `<p class="aide" style="margin:10px 0 0">📅 ${dateFr(c.date_debut)}${c.date_fin && c.date_fin !== c.date_debut ? ' → ' + dateFr(c.date_fin) : ''}
+      ${c.date_debut ? `<p class="aide" style="margin:10px 0 0">📅 ${dateFr(c.date_debut)}${c.date_fin && c.date_fin !== c.date_debut ? ' → ' + dateFr(c.date_fin) : ''}${r.mode === 'forfait' ? ' · semaine ' + numeroSemaine(c.date_debut) : ''}
         · ${MODES_FACTURATION[r.mode]}${c.numero_facture ? ' · Facture ' + esc(c.numero_facture) : ''}</p>` : ''}
       ${c.description ? `<p class="description">${esc(c.description)}</p>` : ''}
     </div>
@@ -199,7 +202,7 @@ export async function fiche(main, { id }) {
   if (mvts.length) exp.onclick = () => tenter(() => {
     const avecChantier = mvts.map(m => ({ ...m, chantiers: { nom: c.nom, statut: c.statut, clients: c.clients } }));
     const nom = c.nom.normalize('NFD').replace(/[^\w-]+/g, '_');
-    return partagerCSV(avecChantier, `chantier_${nom}.csv`);
+    return partagerCSV(avecChantier, `intervention_${nom}.csv`);
   });
 
   // Changement de statut (liste déroulante ou bouton d'action)
@@ -300,7 +303,7 @@ export async function paiement(main, { query }) {
 
 export async function formulaire(main, { id, query }) {
   const [c, clients, generaux] = await Promise.all([
-    id ? q(db.from('chantiers').select('*, mouvements(sens, montant, refacturable)').eq('id', id).single())
+    id ? q(db.from('chantiers').select('*, mouvements(id, sens, montant, refacturable, description, categorie)').eq('id', id).single())
        : { client_id: query.client, statut: 'a_facturer', date_debut: aujourdhui(), mouvements: [] },
     q(db.from('clients').select('*').order('nom')),
     tarifsGeneraux(),
@@ -331,10 +334,20 @@ export async function formulaire(main, { id, query }) {
   let v = id
     ? { ...valeursClient(clientPar[c.client_id]), ...sansVides(c) }
     : { ...c, ...valeursClient(clientPar[c.client_id]) };
+  // Frais réels saisis directement dans le formulaire (une dépense créée automatiquement)
+  const fraisRapide = (c.mouvements || []).find(m => m.sens === 'depense' && m.description === LIBELLE_FRAIS);
+  const autresMouvements = (c.mouvements || []).filter(m => m !== fraisRapide);
+  const autresFrais = autresMouvements.filter(m => m.sens === 'depense').reduce((s, m) => s + Number(m.montant), 0);
+
   const champNombre = (nom, label, valeur, extra = '') => `
     <label>${label}
       <input name="${nom}" inputmode="decimal" value="${nombreFr(valeur)}" ${extra}>
     </label>`;
+
+  // Options rarement utilisées : ouvertes seulement si l'une d'elles est déjà remplie
+  const optionsUtilisees = () => !!(v.date_fin || (id && v.nom && v.nom !== `Intervention du ${dateFr(v.date_debut)}`)
+    || v.km_factures || v.consommables != null || v.montant_facture != null || v.numero_facture
+    || v.mode_facturation !== (clientPar[v.client_id]?.mode_facturation || 'heure'));
 
   function dessiner() {
     main.innerHTML = `
@@ -346,18 +359,9 @@ export async function formulaire(main, { id, query }) {
               ${esc(cl.nom)}${cl.bateau ? ' · ' + esc(cl.bateau) : ''}</option>`).join('')}
           </select>
         </label>
-        <div class="cote-a-cote">
-          <label>Date * <input name="date_debut" type="date" required value="${v.date_debut ?? ''}"></label>
-          <label>Fin (si plusieurs jours) <input name="date_fin" type="date" value="${v.date_fin ?? ''}"></label>
-        </div>
-        <label>Nom (facultatif)
-          <input name="nom" value="${esc(v.nom ?? '')}" placeholder="Intervention du ${dateFr(v.date_debut || aujourdhui())}">
+        <label>Date *
+          <input name="date_debut" type="date" required value="${v.date_debut ?? ''}">
         </label>
-
-        <div class="segments trois" id="modes">
-          ${Object.entries(MODES_FACTURATION).map(([k, l]) => `
-            <label class="neutre"><input type="radio" name="mode_facturation" value="${k}" ${k === v.mode_facturation ? 'checked' : ''}><span>${l}</span></label>`).join('')}
-        </div>
 
         <div id="bloc-heures">
           <h3>⏱️ Temps passé</h3>
@@ -386,41 +390,60 @@ export async function formulaire(main, { id, query }) {
           </div>
         </div>
 
-        <h3>🧾 Facturation</h3>
-        <div class="cote-a-cote">
-          ${champNombre('km_factures', 'Km facturés au client', v.km_factures, 'placeholder="0"')}
-          <label id="champ-conso">Consommables (€)
-            <input name="consommables" inputmode="decimal" value="${nombreFr(v.consommables)}" placeholder="auto">
-          </label>
-        </div>
-        <details class="tarifs-detail">
-          <summary>Tarifs appliqués à cette intervention</summary>
-          <div class="cote-a-cote">
-            ${champNombre('taux_nettoyage', 'Nettoyage (€/h)', v.taux_nettoyage)}
-            ${champNombre('taux_entretien', 'Entretien (€/h)', v.taux_entretien)}
-            ${champNombre('conso_pct', 'Consommables (%)', v.conso_pct)}
-            ${champNombre('conso_min', 'Conso. minimum (€)', v.conso_min)}
-            ${champNombre('prix_km', 'Prix du km (€)', v.prix_km)}
-            ${champNombre('marge_produits', 'Marge produits (%)', v.marge_produits)}
-          </div>
-        </details>
+        <label>Frais réels (€)
+          <input name="frais_reels" inputmode="decimal" value="${nombreFr(fraisRapide?.montant)}" placeholder="ex. 8,58">
+          <small class="aide">Produits, carburant… ${autresFrais ? `En plus des ${euros(autresFrais)} de frais déjà détaillés.` : 'Tu peux aussi les détailler plus tard sur l\'intervention.'}</small>
+        </label>
+        <label>Commentaire
+          <textarea name="description" rows="2" placeholder="ex. nettoyage + vidange eaux grises">${esc(v.description ?? '')}</textarea>
+        </label>
 
         <div class="apercu" id="apercu"></div>
-        <label>Montant facturé (€) — laisse vide pour garder le calcul
-          <input name="montant_facture" inputmode="decimal" value="${nombreFr(v.montant_facture)}" placeholder="calcul automatique">
-        </label>
 
         <label>Statut
           <select name="statut">
             ${Object.entries(STATUTS).map(([k, l]) => `<option value="${k}" ${k === v.statut ? 'selected' : ''}>${PASTILLES_STATUT[k]} ${l}</option>`).join('')}
           </select>
         </label>
-        <label>N° de facture
-          <input name="numero_facture" value="${esc(v.numero_facture ?? '')}" placeholder="ex. F-2026-012">
-        </label>
-        <label>Commentaire
-          <textarea name="description" rows="3" placeholder="ex. nettoyage + vidange eaux grises">${esc(v.description ?? '')}</textarea>
-        </label>
+
+        <details class="plus-options" ${optionsUtilisees() ? 'open' : ''}>
+          <summary>Plus d'options</summary>
+          <p class="aide">Mode de facturation, déplacement facturé, montant modifié, n° de facture, tarifs…</p>
+          <div class="segments trois" id="modes">
+            ${Object.entries(MODES_FACTURATION).map(([k, l]) => `
+              <label class="neutre"><input type="radio" name="mode_facturation" value="${k}" ${k === v.mode_facturation ? 'checked' : ''}><span>${l}</span></label>`).join('')}
+          </div>
+          <div class="cote-a-cote">
+            ${champNombre('km_factures', 'Km facturés au client', v.km_factures, 'placeholder="0"')}
+            <label id="champ-conso">Consommables (€)
+              <input name="consommables" inputmode="decimal" value="${nombreFr(v.consommables)}" placeholder="auto">
+            </label>
+          </div>
+          <label>Montant facturé (€) — vide = calcul automatique
+            <input name="montant_facture" inputmode="decimal" value="${nombreFr(v.montant_facture)}" placeholder="calcul automatique">
+          </label>
+          <div class="cote-a-cote">
+            <label>N° de facture
+              <input name="numero_facture" value="${esc(v.numero_facture ?? '')}" placeholder="ex. F-2026-012">
+            </label>
+            <label>Fin (si plusieurs jours) <input name="date_fin" type="date" value="${v.date_fin ?? ''}"></label>
+          </div>
+          <label>Nom de l'intervention
+            <input name="nom" value="${esc(v.nom ?? '')}" placeholder="Intervention du ${dateFr(v.date_debut || aujourdhui())}">
+          </label>
+          <details class="tarifs-detail">
+            <summary>Tarifs appliqués à cette intervention</summary>
+            <div class="cote-a-cote">
+              ${champNombre('taux_nettoyage', 'Nettoyage (€/h)', v.taux_nettoyage)}
+              ${champNombre('taux_entretien', 'Entretien (€/h)', v.taux_entretien)}
+              ${champNombre('conso_pct', 'Consommables (%)', v.conso_pct)}
+              ${champNombre('conso_min', 'Conso. minimum (€)', v.conso_min)}
+              ${champNombre('prix_km', 'Prix du km (€)', v.prix_km)}
+              ${champNombre('marge_produits', 'Marge produits (%)', v.marge_produits)}
+            </div>
+          </details>
+        </details>
+
         <button class="btn principal" type="submit">Enregistrer</button>
       </form>
       ${id ? '<button class="btn danger" id="supprimer">Supprimer cette intervention</button>' : ''}`;
@@ -486,12 +509,14 @@ export async function formulaire(main, { id, query }) {
     const majApercu = () => {
       let d;
       try { d = lire(form, false); } catch { return; }
-      const r = calculer({ ...d, mouvements: c.mouvements || [] });
+      const frais = lireNombre(form.frais_reels.value) || 0;
+      const r = calculer({ ...d, mouvements: [...autresMouvements, ...(frais ? [{ sens: 'depense', montant: frais }] : [])] });
       main.querySelector('#apercu').innerHTML = `
         <div><span>Montant calculé</span><strong>${euros(r.calcule)}</strong></div>
         ${r.mode === 'heure' && r.mainOeuvre ? `<small>Main-d'œuvre ${euros(r.mainOeuvre)} + consommables ${euros(r.consommables)}${r.kmFactures ? ' + déplacement ' + euros(r.kmFactures) : ''}${r.produitsFactures ? ' + produits ' + euros(r.produitsFactures) : ''}</small>` : ''}
         ${r.mode === 'forfait' ? `<small>${r.bateauxFaits.length} bateau(x) × ${euros(d.forfait_bateau)}${r.kmFactures ? ' + déplacement ' + euros(r.kmFactures) : ''}</small>` : ''}
-        ${r.heures ? `<small>${heuresFr(r.heures)} de travail</small>` : ''}`;
+        ${r.heures ? `<small>${heuresFr(r.heures)} de travail</small>` : ''}
+        ${r.facture ? `<small><strong>Bénéfice net ${euros(r.benefice)}</strong>${r.tauxHoraireNet != null ? ` · ${euros(r.tauxHoraireNet)}/h net` : ''}</small>` : ''}`;
       const conso = form.consommables;
       if (conso) conso.placeholder = r.consoAuto ? `auto : ${nombreFr(r.consoAuto)}` : 'auto';
     };
@@ -526,9 +551,24 @@ export async function formulaire(main, { id, query }) {
       if (d.mode_facturation !== 'forfait') d.bateaux_faits = null;
       if (d.mode_facturation !== 'heure') d.consommables = null;
 
+      const brutFrais = form.frais_reels.value.trim();
+      const frais = brutFrais ? lireNombre(brutFrais) : null;
+      if (brutFrais && frais == null) throw new Error('Frais réels invalides (ex. 8,58).');
+
       const res = id
         ? await q(db.from('chantiers').update(d).eq('id', id).select().single())
         : await q(db.from('chantiers').insert(d).select().single());
+
+      // Frais réels -> une dépense "Frais réels de l'intervention" (créée, modifiée ou supprimée)
+      if (fraisRapide && frais) {
+        await q(db.from('mouvements').update({ montant: frais, date: d.date_debut }).eq('id', fraisRapide.id));
+      } else if (fraisRapide && !frais) {
+        await q(db.from('mouvements').delete().eq('id', fraisRapide.id));
+      } else if (frais) {
+        await q(db.from('mouvements').insert({
+          chantier_id: res.id, date: d.date_debut, sens: 'depense', categorie: 'produits', montant: frais, description: LIBELLE_FRAIS,
+        }));
+      }
       toast('Intervention enregistrée');
       aller(`/chantier/${res.id}`);
     });
