@@ -61,10 +61,10 @@ export async function afficher(main) {
   main.innerHTML = `
     ${bienvenue}
     <div class="resume">
-      <div class="etiquette">Bénéfice net · ${nomMois}</div>
-      <div class="grand">${euros(mois.benefice)}</div>
+      <div class="etiquette">Facturé · ${nomMois}</div>
+      <div class="grand">${euros(mois.facture)}</div>
       <div class="details">
-        <div><span>Facturé</span><strong>${euros(mois.facture)}</strong></div>
+        <div><span>Bénéfice net</span><strong>${euros(mois.benefice)}</strong></div>
         <div><span>Frais réels</span><strong>${euros(mois.fraisReels)}</strong></div>
         <div><span>Heures</span><strong>${heuresFr(mois.heures)}</strong></div>
         <div><span>Taux horaire net</span><strong>${mois.tauxHoraireNet != null ? euros(mois.tauxHoraireNet) + '/h' : '–'}</strong></div>

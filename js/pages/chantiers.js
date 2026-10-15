@@ -133,10 +133,10 @@ export async function fiche(main, { id }) {
     </div>
 
     <div class="resume">
-      <div class="etiquette">Bénéfice net</div>
-      <div class="grand">${euros(r.benefice)}</div>
+      <div class="etiquette">Facturé</div>
+      <div class="grand">${euros(r.facture)}</div>
       <div class="details">
-        <div><span>Facturé</span><strong>${euros(r.facture)}</strong></div>
+        <div><span>Bénéfice net</span><strong>${euros(r.benefice)}</strong></div>
         <div><span>Frais réels</span><strong>${euros(r.fraisReels)}</strong></div>
         <div><span>Taux horaire net</span><strong>${r.tauxHoraireNet != null ? euros(r.tauxHoraireNet) + '/h' : '–'}</strong></div>
         <div><span>Heures</span><strong>${r.heures ? heuresFr(r.heures) : '–'}</strong></div>

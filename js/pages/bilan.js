@@ -51,10 +51,10 @@ export async function afficher(main, { query }) {
     </div>
 
     <div class="resume">
-      <div class="etiquette">Bénéfice net ${annee} · ${an.nombre} intervention(s)</div>
-      <div class="grand">${euros(an.benefice)}</div>
+      <div class="etiquette">Facturé ${annee} · ${an.nombre} intervention(s)</div>
+      <div class="grand">${euros(an.facture)}</div>
       <div class="details">
-        <div><span>Facturé</span><strong>${euros(an.facture)}</strong></div>
+        <div><span>Bénéfice net</span><strong>${euros(an.benefice)}</strong></div>
         <div><span>Frais réels</span><strong>${euros(an.fraisReels)}</strong></div>
         <div><span>Heures</span><strong>${heuresFr(an.heures)}</strong></div>
         <div><span>Taux horaire net</span><strong>${an.tauxHoraireNet != null ? euros(an.tauxHoraireNet) + '/h' : '–'}</strong></div>

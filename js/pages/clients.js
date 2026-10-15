@@ -101,10 +101,10 @@ export async function fiche(main, { id }) {
 
     ${moy.nombre ? `
     <div class="resume">
-      <div class="etiquette">Bénéfice net · ${moy.nombre} intervention(s)</div>
-      <div class="grand">${euros(moy.benefice)}</div>
+      <div class="etiquette">Facturé · ${moy.nombre} intervention(s)</div>
+      <div class="grand">${euros(moy.facture)}</div>
       <div class="details">
-        <div><span>Facturé</span><strong>${euros(moy.facture)}</strong></div>
+        <div><span>Bénéfice net</span><strong>${euros(moy.benefice)}</strong></div>
         <div><span>Frais réels</span><strong>${euros(moy.fraisReels)}</strong></div>
         <div><span>Taux horaire net</span><strong>${moy.tauxHoraireNet != null ? euros(moy.tauxHoraireNet) + '/h' : '–'}</strong></div>
         <div><span>Heures</span><strong>${heuresFr(moy.heures)}</strong></div>
