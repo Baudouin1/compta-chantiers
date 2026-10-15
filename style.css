@@ -436,13 +436,6 @@ label small.aide { display: block; margin-top: 5px; font-weight: 400; font-size:
 .ligne-frais .sous-ligne { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 6px; }
 .ligne-frais .f-km { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--gris); }
 .ligne-frais .f-km input { width: 64px; flex: none; text-align: center; }
-.ligne-frais .f-qte input { width: 48px; }
-.ligne-frais .f-qte { gap: 4px; }
-.ligne-frais .f-plus, .ligne-frais .f-moins {
-  width: 36px; height: 40px; flex: none; border: 1px solid var(--bord, #d0d7de); border-radius: 10px;
-  background: var(--carte, #fff); color: var(--texte, inherit); font-size: 20px; font-weight: 700; cursor: pointer;
-}
-.ligne-frais .f-plus:active, .ligne-frais .f-moins:active { background: var(--ciel-clair); }
 .ligne-frais.flash { animation: flash .6s; }
 @keyframes flash { from { background: var(--ciel-clair); } }
 .ligne-frais .f-pu { display: block; margin-top: 4px; font-size: 13px; color: var(--gris); }
@@ -461,3 +454,39 @@ label.case.petite input { width: 20px; height: 20px; min-height: 20px; }
   padding: 9px 13px; font-size: 15px; font-family: inherit; color: var(--marine); cursor: pointer;
 }
 .puce:active { background: var(--ciel-clair); }
+
+/* Boutons rapides dans le bloc Frais : un compteur par produit */
+.ligne-rapide {
+  display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 6px 10px;
+  background: var(--carte); border-radius: 12px; padding: 8px 10px; margin-bottom: 6px; opacity: .75;
+}
+.ligne-rapide.actif { opacity: 1; box-shadow: inset 0 0 0 2px var(--ciel); }
+.ligne-rapide .pastille { width: 38px; height: 38px; font-size: 20px; border-radius: 10px; }
+.ligne-rapide .corps { min-width: 0; }
+.ligne-rapide .corps strong { display: block; }
+.ligne-rapide .corps small { color: var(--gris); font-size: 13px; }
+.ligne-rapide .r-bas { grid-column: 2; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ligne-rapide .r-calc { color: var(--gris); font-size: 15px; white-space: nowrap; }
+.ligne-rapide .r-calc strong { color: var(--rouge); font-size: 17px; }
+.ligne-rapide:not(.actif) .r-calc strong { color: var(--gris); }
+.ligne-rapide.flash { animation: flash .6s; }
+.compteur { display: flex; align-items: center; gap: 4px; flex: none; }
+.compteur input { width: 48px; margin: 0; min-height: 40px; padding: 8px 4px; text-align: center; font-size: 16px; font-weight: 700; }
+.compteur button {
+  width: 38px; height: 40px; flex: none; border: 1px solid var(--bord); border-radius: 10px;
+  background: var(--carte); color: var(--texte); font-size: 20px; font-weight: 700; cursor: pointer; padding: 0;
+}
+.compteur .f-plus { background: var(--marine-2); border-color: var(--marine-2); color: #fff; }
+.compteur button:disabled { opacity: .35; }
+.total-frais:empty { display: none; }
+
+/* Choix du smiley d'un bouton rapide */
+.label { font-size: 14px; font-weight: 500; color: var(--gris); margin-bottom: 8px; }
+.choix-smiley { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; margin-bottom: 16px; }
+.choix-smiley label { margin: 0; }
+.choix-smiley input { position: absolute; opacity: 0; pointer-events: none; }
+.choix-smiley span {
+  display: flex; align-items: center; justify-content: center; height: 44px; font-size: 24px;
+  border-radius: 10px; background: var(--fond); border: 2px solid transparent; cursor: pointer;
+}
+.choix-smiley input:checked + span { border-color: var(--ciel); background: var(--ciel-clair); }

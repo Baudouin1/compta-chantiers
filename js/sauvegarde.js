@@ -407,8 +407,9 @@ export async function fabriquerSauvegarde(email) {
   ], trajets) + 2;
   F.case(r, 0, 'Boutons rapides', S.section);
   F.tableau(r + 1, [
+    { titre: 'Smiley', val: b => b.emoji || '', largeur: 10 },
     { titre: 'Bouton', val: b => b.libelle, largeur: 36 },
-    { titre: 'Montant', val: b => Number(b.montant), format: EUROS, largeur: 14 },
+    { titre: 'Prix à l\'unité', val: b => Number(b.montant), format: EUROS, largeur: 16 },
     { titre: 'Catégorie', val: b => nomCategorie('depense', b.categorie), largeur: 22 },
     { titre: 'id', val: b => b.id, cache: true },
   ], boutons);

@@ -66,6 +66,18 @@ export function iconeCategorie(sens, cat) {
   return ICONES[sens]?.[cat] || (sens === 'gain' ? '💰' : '📦');
 }
 
+// Smileys proposés pour les boutons rapides (produits, pièces, déplacements…)
+export const SMILEYS_BOUTONS = [
+  '🛢️', '🧴', '🧽', '🧼', '🪣', '🧹', '🧻', '🧤', '🧪', '💧', '🫧', '🎨', '🖌️', '🪥',
+  '🔧', '🔩', '🪛', '⚙️', '🔋', '🔌', '💡', '🧯', '🪢', '⚓', '🚤', '⛵', '📦', '🛒',
+  '⛽', '🚗', '🅿️', '🛣️', '⛴️', '🍽️', '🧾', '🗑️',
+];
+
+// Smiley d'un bouton rapide (celui qu'il a choisi, sinon celui de la catégorie)
+export function iconeBouton(b) {
+  return b?.emoji || iconeCategorie('depense', b?.categorie);
+}
+
 export function nomCategorie(sens, cat) {
   return CATEGORIES[sens]?.[cat] || cat;
 }

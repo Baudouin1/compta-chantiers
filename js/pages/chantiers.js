@@ -2,7 +2,7 @@
 import { db, q } from '../db.js';
 import {
   esc, euros, dateFr, titre, toast, aller, surEnvoi, tenter, dateValide, classeMarge, nomCategorie, iconeCategorie,
-  nombreFr, heuresFr, lireHeures, aujourdhui, champDuree, brancherDurees, menuChoix, STATUTS, PASTILLES_STATUT, MODES_PAIEMENT, MODES_FACTURATION,
+  nombreFr, heuresFr, lireHeures, aujourdhui, champDuree, brancherDurees, menuChoix, iconeBouton, STATUTS, PASTILLES_STATUT, MODES_PAIEMENT, MODES_FACTURATION,
 } from '../utils.js';
 import { calculer, tarifsGeneraux, tarifsClient, listeBateaux, numeroSemaine } from '../calculs.js';
 import { lireNombre } from './reglages.js';
@@ -171,7 +171,7 @@ export async function fiche(main, { id }) {
 
     <div class="rapides">
       <a class="btn" href="#/deplacement?chantier=${c.id}">🚗 Aller-retour</a>
-      ${boutons.map(b => `<a class="btn" href="#/chantier/${c.id}/modifier?frais=1&bouton=${b.id}">${esc(b.libelle)}</a>`).join('')}
+      ${boutons.map(b => `<a class="btn" href="#/chantier/${c.id}/modifier?frais=1&bouton=${b.id}">${esc(iconeBouton(b))} ${esc(b.libelle)}</a>`).join('')}
       <a class="btn ajout" href="#/reglages/bouton/nouveau" aria-label="Ajouter un bouton rapide">＋</a>
     </div>
 
@@ -369,6 +369,13 @@ export async function formulaire(main, { id, query }) {
 
   const fraisActifs = () => frais.filter(f => !f.supprime);
   let boutonAjoute = false;
+  // Boutons rapides : chacun a son compteur dans le bloc Frais (0 = pas utilisé, non enregistré)
+  for (const b of boutons) {
+    const f = frais.find(g => g.qte != null && g.rapide == null && g.description === b.libelle);
+    if (f) f.rapide = b.id;
+    else frais.push({ rapide: b.id, categorie: b.categorie, description: b.libelle, qte: 0, pu: Number(b.montant), montant: 0, refacturable: false });
+  }
+  const boutonDe = f => boutons.find(b => b.id === f.rapide);
 
   const champNombre = (nom, label, valeur, extra = '') => `
     <label>${label}
@@ -423,6 +430,10 @@ export async function formulaire(main, { id, query }) {
 
         <div class="bloc-frais" id="bloc-frais">
           <h3>🧾 Frais de l'intervention</h3>
+          ${boutons.length ? `
+          <p class="aide sous-titre-frais">⚡ Combien tu en as utilisé ? (touche + ou tape le nombre)</p>
+          <div id="liste-rapides"></div>` : `<p class="aide sous-titre-frais"><a href="#/reglages/boutons">⚡ Crée tes boutons rapides</a> (produits que tu utilises souvent, avec leur prix)</p>`}
+          <p class="aide sous-titre-frais">Autres frais</p>
           <div id="liste-frais"></div>
           <div class="ajout-frais">
             <button type="button" class="puce" data-ajout="ar">🚗 Aller-retour</button>
@@ -430,11 +441,7 @@ export async function formulaire(main, { id, query }) {
             <button type="button" class="puce" data-ajout="produit">⚙️ Produit revendu</button>
             <button type="button" class="puce" data-ajout="autre">＋ Autre</button>
           </div>
-          ${boutons.length ? `
-          <p class="aide sous-titre-frais">⚡ Mes boutons rapides (touche plusieurs fois pour en ajouter)</p>
-          <div class="ajout-frais">
-            ${boutons.map((b, k) => `<button type="button" class="puce rapide" data-ajout="bouton" data-k="${k}">${esc(b.libelle)} <small>${prix(Number(b.montant))} €</small></button>`).join('')}
-          </div>` : `<p class="aide sous-titre-frais"><a href="#/reglages/boutons">⚡ Crée tes boutons rapides</a> (produits que tu utilises souvent, avec leur prix)</p>`}
+          <div class="total-frais" id="total-frais"></div>
         </div>
         <label>Commentaire
           <textarea name="description" rows="2" placeholder="ex. nettoyage + vidange eaux grises">${esc(v.description ?? '')}</textarea>
@@ -564,14 +571,32 @@ export async function formulaire(main, { id, query }) {
     };
 
     // ----- Lignes de frais -----
+    const blocFrais = main.querySelector('#bloc-frais');
     const zoneFrais = main.querySelector('#liste-frais');
+    const zoneRapides = main.querySelector('#liste-rapides');
     const cl = () => clientPar[form.client_id.value];
     const choixTrajets = () => [
       ...(cl()?.trajet_km ? [{ destination: cl().trajet_destination || cl().port || 'Trajet du client', km: Number(cl().trajet_km) }] : []),
       ...trajets.map(t => ({ destination: t.destination, km: Number(t.km) })),
     ];
+    const calculQte = f => `= <strong>${euros(f.montant)}</strong>`;
+    const compteur = f => `
+      <span class="compteur">
+        <button type="button" class="f-moins" aria-label="Un de moins" ${f.qte > 0 ? '' : 'disabled'}>−</button>
+        <input class="f-qte-val" inputmode="decimal" value="${nombreFr(f.qte)}" aria-label="Quantité">
+        <button type="button" class="f-plus" aria-label="Un de plus">+</button>
+      </span>`;
     function dessinerFrais() {
-      const actifs = fraisActifs();
+      if (zoneRapides) zoneRapides.innerHTML = boutons.map(b => frais.find(f => f.rapide === b.id)).map(f => `
+        <div class="ligne-rapide ${f.qte > 0 ? 'actif' : ''}" data-i="${frais.indexOf(f)}">
+          <span class="pastille depense">${esc(iconeBouton(boutonDe(f)))}</span>
+          <div class="corps">
+            <strong>${esc(f.description)}</strong>
+            <small>${prix(f.pu)} € l'unité</small>
+          </div>
+          <div class="r-bas">${compteur(f)}<span class="r-calc">${calculQte(f)}</span></div>
+        </div>`).join('');
+      const actifs = fraisActifs().filter(f => !f.rapide);
       zoneFrais.innerHTML = actifs.length ? actifs.map(f => {
         const k = frais.indexOf(f);
         const estAR = f.categorie === 'deplacement' && f.km != null;
@@ -584,7 +609,7 @@ export async function formulaire(main, { id, query }) {
                 ${estAR
                   ? `<span class="f-km"><input class="f-km-val" inputmode="decimal" value="${nombreFr(f.km)}"> km × ${euros(generaux.cout_km)}</span>`
                   : f.qte != null
-                  ? `<span class="f-km f-qte"><button type="button" class="f-moins" aria-label="Un de moins">−</button><input class="f-qte-val" inputmode="decimal" value="${nombreFr(f.qte)}"><button type="button" class="f-plus" aria-label="Un de plus">+</button></span>`
+                  ? compteur(f)
                   : `<label class="case petite"><input type="checkbox" class="f-refac" ${f.refacturable ? 'checked' : ''}> Refacturé au client</label>`}
                 <span class="f-euros"><input class="f-montant" inputmode="decimal" value="${f.montant != null ? (estAR || f.qte != null ? prix(f.montant) : nombreFr(f.montant)) : ''}" placeholder="0,00" ${estAR || f.qte != null ? 'readonly' : ''}> €</span>
               </div>
@@ -593,12 +618,11 @@ export async function formulaire(main, { id, query }) {
             </div>
             <button type="button" class="f-suppr" aria-label="Supprimer">✕</button>
           </div>`;
-      }).join('') : '<p class="aide">Aucun frais pour l\'instant. Ajoute ce que tu as utilisé :</p>';
-      const total = actifs.reduce((x, f) => x + (f.montant || 0), 0);
-      if (actifs.length) zoneFrais.insertAdjacentHTML('beforeend', `<div class="total-frais">Total des frais <strong>${euros(total)}</strong></div>`);
+      }).join('') : '';
+      majTotal();
     }
-    zoneFrais.addEventListener('input', e => {
-      const ligne = e.target.closest('.ligne-frais'); if (!ligne) return;
+    blocFrais.addEventListener('input', e => {
+      const ligne = e.target.closest('[data-i]'); if (!ligne) return;
       const f = frais[ligne.dataset.i];
       if (e.target.classList.contains('f-desc')) f.description = e.target.value;
       if (e.target.classList.contains('f-montant')) f.montant = lireNombre(e.target.value);
@@ -610,30 +634,39 @@ export async function formulaire(main, { id, query }) {
         ligne.querySelector('.f-desc').value = f.description;
       }
       if (e.target.classList.contains('f-qte-val')) {
-        f.qte = lireNombre(e.target.value) || 0;
+        f.qte = Math.max(0, lireNombre(e.target.value) || 0); // jamais en dessous de 0
         majQuantite(ligne, f, false);
       }
       majApercu(); majTotal();
     });
-    const majTotal = () => {
+    function majTotal() {
       const total = fraisActifs().reduce((x, g) => x + (g.montant || 0), 0);
-      const t = zoneFrais.querySelector('.total-frais strong'); if (t) t.textContent = euros(total);
-    };
+      const t = main.querySelector('#total-frais');
+      t.innerHTML = total ? `Total des frais <strong>${euros(total)}</strong>` : '';
+    }
     function majQuantite(ligne, f, ecrire = true) {
       f.montant = Math.round(f.qte * f.pu * 100) / 100;
-      ligne.querySelector('.f-montant').value = prix(f.montant);
+      const m = ligne.querySelector('.f-montant'); if (m) m.value = prix(f.montant);
+      const c = ligne.querySelector('.r-calc'); if (c) c.innerHTML = calculQte(f);
+      ligne.querySelector('.f-moins').disabled = !(f.qte > 0);
+      if (ligne.classList.contains('ligne-rapide')) ligne.classList.toggle('actif', f.qte > 0);
       if (ecrire) ligne.querySelector('.f-qte-val').value = nombreFr(f.qte);
     }
-    zoneFrais.addEventListener('change', e => {
+    blocFrais.addEventListener('change', e => {
+      // Quand il quitte la case : on réécrit le nombre propre (ex. "-3" ou "abc" -> 0)
+      if (e.target.classList.contains('f-qte-val')) {
+        const ligne = e.target.closest('[data-i]');
+        majQuantite(ligne, frais[ligne.dataset.i]);
+      }
       if (!e.target.classList.contains('f-refac')) return;
       frais[e.target.closest('.ligne-frais').dataset.i].refacturable = e.target.checked;
       majApercu();
     });
-    zoneFrais.addEventListener('click', e => {
+    blocFrais.addEventListener('click', e => {
       const pas = e.target.classList.contains('f-plus') ? 1 : e.target.classList.contains('f-moins') ? -1 : 0;
       if (pas) {
-        const ligne = e.target.closest('.ligne-frais'), f = frais[ligne.dataset.i];
-        f.qte = Math.max(0, (f.qte || 0) + pas);
+        const ligne = e.target.closest('[data-i]'), f = frais[ligne.dataset.i];
+        f.qte = Math.max(0, Math.round(((f.qte || 0) + pas) * 100) / 100);
         majQuantite(ligne, f); majApercu(); majTotal();
         return;
       }
@@ -660,7 +693,6 @@ export async function formulaire(main, { id, query }) {
         } else ajouterAR(options[0] || null);
         return;
       }
-      if (type === 'bouton') { ajouterBouton(boutons[b.dataset.k]); return; }
       const modele = {
         conso: { categorie: 'produits', description: 'Consommables', refacturable: false },
         produit: { categorie: 'pieces', description: '', refacturable: true },
@@ -673,15 +705,11 @@ export async function formulaire(main, { id, query }) {
       (modele.description ? derniere?.querySelector('.f-montant') : derniere?.querySelector('.f-desc'))?.focus();
     });
     function ajouterBouton(x) {
-      const pu = Number(x.montant);
-      let f = fraisActifs().find(g => g.qte != null && g.description === x.libelle && g.pu === pu);
-      if (f) f.qte += 1;
-      else frais.push(f = { categorie: x.categorie, description: x.libelle, qte: 1, pu, montant: 0, refacturable: false });
-      f.montant = Math.round(f.qte * pu * 100) / 100;
+      const f = frais.find(g => g.rapide === x.id);
+      f.qte += 1;
+      f.montant = Math.round(f.qte * f.pu * 100) / 100;
       dessinerFrais(); majApercu();
-      const ligne = zoneFrais.querySelector(`.ligne-frais[data-i="${frais.indexOf(f)}"]`);
-      ligne?.classList.add('flash');
-      ligne?.scrollIntoView({ block: 'nearest' });
+      zoneRapides.querySelector(`[data-i="${frais.indexOf(f)}"]`)?.classList.add('flash');
     }
     dessinerFrais();
     // Arrivé depuis un bouton rapide de la fiche : on l'ajoute une seule fois
@@ -728,7 +756,7 @@ export async function formulaire(main, { id, query }) {
         : await q(db.from('chantiers').insert(d).select().single());
 
       // Frais : on crée / modifie / supprime les dépenses
-      if (JSON.stringify(frais) !== fraisInitiaux) {
+      {
         const avant = Object.fromEntries(JSON.parse(fraisInitiaux).map(f => [f.id, f]));
         for (const f of frais) {
           if (f.qte === 0) f.supprime = true; // quantité 0 = on ne l'a pas utilisé

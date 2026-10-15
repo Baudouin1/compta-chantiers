@@ -2,7 +2,7 @@
 import { db, q } from '../db.js';
 import { tarifsGeneraux } from '../calculs.js';
 import {
-  esc, euros, titre, toast, aller, surEnvoi, tenter, lireMontant, nomCategorie, aujourdhui, nombreFr, CATEGORIES,
+  esc, euros, titre, toast, aller, surEnvoi, tenter, lireMontant, nomCategorie, aujourdhui, nombreFr, iconeBouton, SMILEYS_BOUTONS, CATEGORIES,
 } from '../utils.js';
 import { partagerFichier } from './export.js';
 import { fabriquerSauvegarde } from '../sauvegarde.js';
@@ -213,6 +213,7 @@ export async function boutons(main) {
     <div class="liste">
       ${liste.map(b => `
         <a class="ligne" href="#/reglages/bouton/${b.id}">
+          <span class="pastille">${esc(iconeBouton(b))}</span>
           <div><strong>${esc(b.libelle)}</strong><small>${esc(nomCategorie('depense', b.categorie))}</small></div>
           <span>${euros(b.montant)}</span>
         </a>`).join('') || '<p class="vide">Aucun bouton. Exemples : « Péage », « Plein de produits ».</p>'}
@@ -236,6 +237,10 @@ export async function boutonFormulaire(main, { id }) {
       <label>Prix à l'unité (€) *
         <input name="montant" inputmode="decimal" required value="${b.montant != null ? String(b.montant).replace('.', ',') : ''}">
       </label>
+      <div class="label">Smiley du bouton</div>
+      <div class="choix-smiley">
+        ${SMILEYS_BOUTONS.map(e => `<label><input type="radio" name="emoji" value="${e}" ${e === iconeBouton(b) ? 'checked' : ''}><span>${e}</span></label>`).join('')}
+      </div>
       <button class="btn principal" type="submit">Enregistrer</button>
     </form>
     ${id ? '<button class="btn danger" id="supprimer">Supprimer ce bouton</button>' : ''}`;
