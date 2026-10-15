@@ -7,6 +7,9 @@ import * as chantiers from './pages/chantiers.js';
 import * as clients from './pages/clients.js';
 import * as mouvements from './pages/mouvements.js';
 import * as reglages from './pages/reglages.js';
+import * as deplacement from './pages/deplacement.js';
+import * as exportCsv from './pages/export.js';
+import * as calendrier from './pages/calendrier.js';
 
 // Liste des écrans : adresse -> fonction qui affiche l'écran
 const ROUTES = [
@@ -21,14 +24,24 @@ const ROUTES = [
   ['/client/:id/modifier', clients.formulaire, 'clients'],
   ['/mouvement/nouveau', mouvements.formulaire, null],
   ['/mouvement/:id', mouvements.formulaire, null],
+  ['/deplacement', deplacement.formulaire, null],
+  ['/calendrier', calendrier.formulaire, null],
   ['/reglages', reglages.afficher, 'reglages'],
+  ['/reglages/trajets', reglages.trajets, 'reglages'],
+  ['/reglages/trajet/nouveau', reglages.trajetFormulaire, 'reglages'],
+  ['/reglages/trajet/:id', reglages.trajetFormulaire, 'reglages'],
+  ['/reglages/boutons', reglages.boutons, 'reglages'],
+  ['/reglages/bouton/nouveau', reglages.boutonFormulaire, 'reglages'],
+  ['/reglages/bouton/:id', reglages.boutonFormulaire, 'reglages'],
+  ['/export', exportCsv.afficher, 'reglages'],
 ];
 
 const main = document.getElementById('page');
 const nav = document.getElementById('onglets');
 
 function estFormulaire(chemin) {
-  return /\/(nouveau|modifier)$/.test(chemin) || chemin.startsWith('/mouvement/');
+  return /\/(nouveau|modifier)$/.test(chemin)
+    || /^\/(mouvement|deplacement|calendrier|export|reglages\/(trajet|bouton)\/)/.test(chemin);
 }
 
 function trouverRoute(chemin) {

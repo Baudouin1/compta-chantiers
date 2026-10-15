@@ -1,21 +1,167 @@
-// Écran Réglages
-import { db } from '../db.js';
-import { esc, titre } from '../utils.js';
+// Écran Réglages + gestion des trajets enregistrés et des boutons rapides
+import { db, q, coutKm } from '../db.js';
+import {
+  esc, euros, titre, toast, aller, surEnvoi, tenter, lireMontant, nomCategorie, CATEGORIES,
+} from '../utils.js';
 
 export async function afficher(main) {
   titre('Réglages');
-  const { data } = await db.auth.getUser();
+  const [{ data }, cout, nbTrajets, nbBoutons] = await Promise.all([
+    db.auth.getUser(),
+    coutKm(),
+    q(db.from('trajets').select('id')),
+    q(db.from('boutons_rapides').select('id')),
+  ]);
 
   main.innerHTML = `
+    <form class="carte" id="form-km">
+      <label>Coût au km (€)
+        <input name="cout_km" inputmode="decimal" required value="${cout.toFixed(2).replace('.', ',')}">
+      </label>
+      <p class="aide">Utilisé par le bouton « Aller-retour » : distance × coût au km.</p>
+      <button class="btn principal" type="submit">Enregistrer</button>
+    </form>
+
+    <div class="liste">
+      <a class="ligne" href="#/reglages/trajets">
+        <div><strong>🚗 Trajets enregistrés</strong><small>${nbTrajets.length} trajet(s)</small></div>
+        <span class="fleche">›</span>
+      </a>
+      <a class="ligne" href="#/reglages/boutons">
+        <div><strong>⚡ Boutons rapides</strong><small>${nbBoutons.length} bouton(s)</small></div>
+        <span class="fleche">›</span>
+      </a>
+      <a class="ligne" href="#/export">
+        <div><strong>📄 Export CSV</strong><small>Pour le comptable</small></div>
+        <span class="fleche">›</span>
+      </a>
+    </div>
+
     <div class="carte">
       <div class="info"><span>Connecté avec</span><div>${esc(data.user?.email)}</div></div>
     </div>
-    <p class="aide">Bientôt ici : coût au km, trajets enregistrés, boutons rapides, export CSV.</p>
     <button class="btn danger" id="deconnexion">Se déconnecter</button>`;
+
+  surEnvoi(main.querySelector('#form-km'), async data => {
+    const cout = lireMontant(data.cout_km);
+    if (cout == null || cout > 10) throw new Error('Coût invalide (ex. 0,60).');
+    const { data: s } = await db.auth.getSession();
+    await q(db.from('reglages').upsert({ user_id: s.session.user.id, cout_km: cout }));
+    toast('Coût au km enregistré');
+  });
 
   main.querySelector('#deconnexion').onclick = async () => {
     if (!confirm('Se déconnecter ?')) return;
     await db.auth.signOut();
     location.hash = '/';
   };
+}
+
+// ---------- Trajets enregistrés ----------
+
+export async function trajets(main) {
+  titre('Trajets enregistrés', '/reglages');
+  const liste = await q(db.from('trajets').select('*').order('destination'));
+  main.innerHTML = `
+    <a class="btn principal" href="#/reglages/trajet/nouveau">+ Nouveau trajet</a>
+    <p class="aide">Ces trajets sont proposés quand tu touches « Aller-retour » sur un chantier.</p>
+    <div class="liste">
+      ${liste.map(t => `
+        <a class="ligne" href="#/reglages/trajet/${t.id}">
+          <strong>${esc(t.destination)}</strong>
+          <span>${String(t.km ?? 0).replace('.', ',')} km</span>
+        </a>`).join('') || '<p class="vide">Aucun trajet enregistré.</p>'}
+    </div>`;
+}
+
+export async function trajetFormulaire(main, { id }) {
+  const t = id ? await q(db.from('trajets').select('*').eq('id', id).single()) : {};
+  titre(id ? 'Modifier le trajet' : 'Nouveau trajet', '/reglages/trajets');
+  main.innerHTML = `
+    <form class="carte" id="form-trajet">
+      <label>Destination *
+        <input name="destination" required value="${esc(t.destination ?? '')}" placeholder="ex. Chantier naval de Kernevel">
+      </label>
+      <label>Distance aller-retour (km) *
+        <input name="km" inputmode="decimal" required value="${t.km != null ? String(t.km).replace('.', ',') : ''}">
+      </label>
+      <button class="btn principal" type="submit">Enregistrer</button>
+    </form>
+    ${id ? '<button class="btn danger" id="supprimer">Supprimer ce trajet</button>' : ''}`;
+
+  surEnvoi(main.querySelector('#form-trajet'), async data => {
+    if (!data.destination) throw new Error('La destination est obligatoire.');
+    data.km = lireMontant(data.km);
+    if (!data.km || data.km > 5000) throw new Error('Distance invalide (en km, ex. 42 ou 42,5).');
+    if (id) await q(db.from('trajets').update(data).eq('id', id));
+    else await q(db.from('trajets').insert(data));
+    toast('Trajet enregistré');
+    aller('/reglages/trajets');
+  });
+
+  const suppr = main.querySelector('#supprimer');
+  if (suppr) suppr.onclick = () => tenter(async () => {
+    if (!confirm('Supprimer ce trajet ?')) return;
+    await q(db.from('trajets').delete().eq('id', id));
+    toast('Trajet supprimé');
+    aller('/reglages/trajets');
+  });
+}
+
+// ---------- Boutons rapides personnalisés ----------
+
+export async function boutons(main) {
+  titre('Boutons rapides', '/reglages');
+  const liste = await q(db.from('boutons_rapides').select('*').order('libelle'));
+  main.innerHTML = `
+    <a class="btn principal" href="#/reglages/bouton/nouveau">+ Nouveau bouton</a>
+    <p class="aide">Ces boutons apparaissent sur la page de chaque chantier.
+      Ils ouvrent une dépense déjà remplie, dont tu peux changer le montant.</p>
+    <div class="liste">
+      ${liste.map(b => `
+        <a class="ligne" href="#/reglages/bouton/${b.id}">
+          <div><strong>${esc(b.libelle)}</strong><small>${esc(nomCategorie('depense', b.categorie))}</small></div>
+          <span>${euros(b.montant)}</span>
+        </a>`).join('') || '<p class="vide">Aucun bouton. Exemples : « Péage », « Plein de produits ».</p>'}
+    </div>`;
+}
+
+export async function boutonFormulaire(main, { id }) {
+  const b = id ? await q(db.from('boutons_rapides').select('*').eq('id', id).single()) : { categorie: 'produits' };
+  titre(id ? 'Modifier le bouton' : 'Nouveau bouton', '/reglages/boutons');
+  main.innerHTML = `
+    <form class="carte" id="form-bouton">
+      <label>Nom du bouton *
+        <input name="libelle" required maxlength="30" value="${esc(b.libelle ?? '')}" placeholder="ex. Péage">
+      </label>
+      <label>Catégorie de la dépense
+        <select name="categorie">
+          ${Object.entries(CATEGORIES.depense).map(([k, v]) =>
+            `<option value="${k}" ${k === b.categorie ? 'selected' : ''}>${v}</option>`).join('')}
+        </select>
+      </label>
+      <label>Montant par défaut (€) *
+        <input name="montant" inputmode="decimal" required value="${b.montant != null ? String(b.montant).replace('.', ',') : ''}">
+      </label>
+      <button class="btn principal" type="submit">Enregistrer</button>
+    </form>
+    ${id ? '<button class="btn danger" id="supprimer">Supprimer ce bouton</button>' : ''}`;
+
+  surEnvoi(main.querySelector('#form-bouton'), async data => {
+    if (!data.libelle) throw new Error('Le nom du bouton est obligatoire.');
+    data.montant = lireMontant(data.montant);
+    if (data.montant == null || data.montant > 1000000) throw new Error('Montant invalide (ex. 12 ou 12,50).');
+    if (id) await q(db.from('boutons_rapides').update(data).eq('id', id));
+    else await q(db.from('boutons_rapides').insert(data));
+    toast('Bouton enregistré');
+    aller('/reglages/boutons');
+  });
+
+  const suppr = main.querySelector('#supprimer');
+  if (suppr) suppr.onclick = () => tenter(async () => {
+    if (!confirm('Supprimer ce bouton ?')) return;
+    await q(db.from('boutons_rapides').delete().eq('id', id));
+    toast('Bouton supprimé');
+    aller('/reglages/boutons');
+  });
 }

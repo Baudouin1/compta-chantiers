@@ -5,7 +5,14 @@ import { esc, titre, toast, aller, surEnvoi, tenter, dateValide, lireMontant, au
 export async function formulaire(main, { id, query }) {
   const [m, chantiers] = await Promise.all([
     id ? q(db.from('mouvements').select('*').eq('id', id).single())
-       : { sens: query.sens || 'depense', chantier_id: query.chantier || null, date: aujourdhui() },
+       : { // nouveau mouvement : valeurs reçues dans l'adresse (ex. depuis un bouton rapide)
+           sens: query.sens === 'gain' ? 'gain' : 'depense',
+           chantier_id: query.chantier || null,
+           date: aujourdhui(),
+           categorie: query.categorie,
+           montant: query.montant ? Number(query.montant) : null,
+           description: query.description,
+         },
     q(db.from('chantiers').select('id, nom, statut, clients(nom)').order('created_at', { ascending: false })),
   ]);
   const retour = m.chantier_id ? `/chantier/${m.chantier_id}` : '/';
@@ -20,7 +27,7 @@ export async function formulaire(main, { id, query }) {
 
       <label>Montant (€) *
         <input name="montant" inputmode="decimal" required class="gros-montant"
-          value="${m.montant != null ? String(m.montant).replace('.', ',') : ''}" placeholder="0,00">
+          value="${m.montant != null ? Number(m.montant).toFixed(2).replace('.', ',') : ''}" placeholder="0,00">
       </label>
 
       <label>Catégorie *

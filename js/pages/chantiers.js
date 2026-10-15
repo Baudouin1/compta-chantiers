@@ -3,6 +3,7 @@ import { db, q } from '../db.js';
 import {
   esc, euros, dateFr, titre, toast, aller, surEnvoi, tenter, dateValide, totaux, classeMarge, nomCategorie, STATUTS,
 } from '../utils.js';
+import { partagerCSV } from './export.js';
 
 let filtreStatut = 'en_cours';
 
@@ -46,7 +47,10 @@ export function ligneChantier(c) {
 }
 
 export async function fiche(main, { id }) {
-  const c = await q(db.from('chantiers').select('*, clients(*), mouvements(*)').eq('id', id).single());
+  const [c, boutons] = await Promise.all([
+    q(db.from('chantiers').select('*, clients(*), mouvements(*)').eq('id', id).single()),
+    q(db.from('boutons_rapides').select('*').order('libelle')),
+  ]);
   titre(c.nom, '/chantiers');
   const t = totaux(c.mouvements);
   const mvts = c.mouvements.sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at));
@@ -75,12 +79,29 @@ export async function fiche(main, { id }) {
       <a class="btn gain" href="#/mouvement/nouveau?chantier=${c.id}&sens=gain">+ Gain</a>
     </div>
 
+    <div class="rapides">
+      <a class="btn" href="#/deplacement?chantier=${c.id}">🚗 Aller-retour</a>
+      ${boutons.map(b => `<a class="btn" href="#/mouvement/nouveau?${new URLSearchParams({
+        chantier: c.id, sens: 'depense', categorie: b.categorie, montant: b.montant, description: b.libelle,
+      })}">${esc(b.libelle)}</a>`).join('')}
+      <a class="btn ajout" href="#/reglages/bouton/nouveau" aria-label="Ajouter un bouton rapide">＋</a>
+    </div>
+
     <h2>Mouvements</h2>
     <div class="liste">
       ${mvts.map(ligneMouvement).join('') || '<p class="vide">Aucun mouvement pour l\'instant.</p>'}
     </div>
 
+    <a class="btn" href="#/calendrier?chantier=${c.id}">📅 Ajouter au calendrier</a>
+    ${mvts.length ? '<button class="btn" id="export">📄 Exporter les mouvements (CSV)</button>' : ''}
     <a class="btn" href="#/chantier/${c.id}/modifier">Modifier le chantier</a>`;
+
+  const exp = main.querySelector('#export');
+  if (exp) exp.onclick = () => tenter(() => {
+    const avecChantier = mvts.map(m => ({ ...m, chantiers: { nom: c.nom, statut: c.statut, clients: c.clients } }));
+    const nom = c.nom.normalize('NFD').replace(/[^\w-]+/g, '_');
+    return partagerCSV(avecChantier, `chantier_${nom}.csv`);
+  });
 
   const selectStatut = main.querySelector('#statut');
   selectStatut.onchange = () => tenter(async () => {

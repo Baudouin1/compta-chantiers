@@ -165,7 +165,7 @@ select {
 input[type=search] { margin-bottom: 12px; }
 .gros-montant { font-size: 28px; font-weight: 700; text-align: right; }
 .cote-a-cote { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.cote-a-cote input { min-width: 0; }
+.cote-a-cote > *, .cote-a-cote input { min-width: 0; }
 
 label.case { display: flex; align-items: center; gap: 12px; font-size: 17px; color: var(--texte); }
 label.case input { width: 26px; min-height: 26px; height: 26px; margin: 0; -webkit-appearance: checkbox; appearance: auto; }
@@ -198,3 +198,16 @@ label.case input { width: 26px; min-height: 26px; height: 26px; margin: 0; -webk
   background: #222; color: #fff; padding: 12px 20px; border-radius: 30px;
   font-size: 15px; box-shadow: 0 4px 12px rgba(0,0,0,.25);
 }
+
+/* ---------- Boutons rapides (page chantier) ---------- */
+.rapides { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.rapides .btn { width: auto; flex: 1 1 auto; min-width: 40%; padding: 12px 14px; min-height: 50px; font-size: 16px; margin: 0; }
+.rapides .btn.ajout { flex: 0 0 auto; min-width: 50px; color: var(--gris); }
+
+/* ---------- Calcul du déplacement ---------- */
+.calcul {
+  display: flex; justify-content: space-between; align-items: baseline;
+  background: var(--fond); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px;
+}
+.calcul span { color: var(--gris); font-size: 15px; }
+.calcul strong { font-size: 24px; color: var(--rouge); }

@@ -12,3 +12,9 @@ export async function q(requete) {
   }
   return data;
 }
+
+// Coût au km enregistré dans les réglages (0,60 € par défaut)
+export async function coutKm() {
+  const r = await q(db.from('reglages').select('cout_km').maybeSingle());
+  return r ? Number(r.cout_km) : 0.6;
+}

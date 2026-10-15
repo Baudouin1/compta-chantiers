@@ -3,7 +3,7 @@
 // et la copie ne sert que si le réseau ne répond pas.
 // Les données Supabase ne passent PAS par ici (elles viennent toujours d'internet).
 
-const CACHE = 'compta-chantiers-v1';
+const CACHE = 'compta-chantiers-v2';
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -17,7 +17,7 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  if (e.request.method !== 'GET' || url.origin !== location.origin) return;
+  if (e.request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/')) return;
 
   e.respondWith(
     fetch(e.request)
