@@ -405,3 +405,18 @@ label small.aide { display: block; margin-top: 5px; font-weight: 400; font-size:
 }
 .action-entete:active { background: rgba(255,255,255,.3); }
 #entete h1 { flex: 1; min-width: 0; }
+
+/* ---------- Accueil : interventions groupées par client ---------- */
+.groupe-client { background: var(--carte); border-radius: var(--rayon); box-shadow: var(--ombre); margin-bottom: 10px; }
+.groupe-client > summary {
+  display: flex; align-items: center; gap: 10px; padding: 14px 16px; cursor: pointer; list-style: none;
+}
+.groupe-client > summary::-webkit-details-marker { display: none; }
+.groupe-client > summary > div { flex: 1; min-width: 0; }
+.groupe-client > summary strong { display: block; font-size: 17px; }
+.groupe-client > summary small { display: block; color: var(--gris); font-size: 14px; margin-top: 2px; }
+.groupe-client > summary::after { content: '›'; color: #b3bccb; font-size: 26px; transition: transform .2s; }
+.groupe-client[open] > summary::after { transform: rotate(90deg); }
+.groupe-client > .liste { padding: 0 10px; margin-bottom: 0; }
+.groupe-client > .liste .ligne { box-shadow: none; background: var(--fond); }
+.groupe-client > .btn.lien { margin: 4px 0; }

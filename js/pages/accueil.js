@@ -1,6 +1,6 @@
 // Écran d'accueil : le mois en cours, ce qu'il reste à facturer / encaisser, dernières interventions
 import { db, q } from '../db.js';
-import { euros, titre, totaux, heuresFr } from '../utils.js';
+import { esc, euros, dateFr, titre, totaux, heuresFr, classeMarge } from '../utils.js';
 import { calculer, moyennes } from '../calculs.js';
 import { ligneChantier, CHAMPS_LISTE } from './chantiers.js';
 
@@ -29,6 +29,20 @@ export async function afficher(main) {
   const somme = (liste, k) => liste.reduce((s, c) => s + calculer(c)[k], 0);
   const aFacturer = chantiers.filter(c => c.statut === 'a_facturer');
   const enAttente = chantiers.filter(c => c.statut === 'facture');
+
+  // Interventions regroupées par client (le client le plus récent en premier)
+  const parClient = {};
+  for (const c of chantiers) {
+    if (!c.clients) continue;
+    (parClient[c.client_id] ||= { client: { id: c.client_id, ...c.clients }, chantiers: [] }).chantiers.push(c);
+  }
+  const groupes = Object.values(parClient).map(g => ({
+    ...g,
+    moy: moyennes(g.chantiers),
+    derniere: g.chantiers.map(c => c.date_debut || '').sort().pop(),
+    aFacturer: g.chantiers.filter(c => c.statut === 'a_facturer').length,
+    enAttente: g.chantiers.filter(c => c.statut === 'facture').length,
+  })).sort((a, b) => (b.derniere || '').localeCompare(a.derniere || ''));
 
   // Première utilisation : petit guide de démarrage
   const bienvenue = !clients.length ? `
@@ -65,12 +79,6 @@ export async function afficher(main) {
     ${enAttente.length ? `<a class="alerte orange" href="#/chantiers?statut=facture">
       🟠 <span><strong>${enAttente.length} en attente de règlement</strong> · ${euros(somme(enAttente, 'resteAEncaisser'))}</span> ›</a>` : ''}
 
-    <h2>Dernières interventions</h2>
-    <div class="liste">
-      ${chantiers.slice(0, 6).map(c => ligneChantier(c)).join('') || '<p class="vide">Aucune intervention pour l\'instant.</p>'}
-    </div>
-    ${chantiers.length > 6 ? '<a class="btn" href="#/chantiers">Voir toutes les interventions</a>' : ''}
-
     <h2>Frais généraux</h2>
     <div class="deux-boutons">
       <a class="btn depense" href="#/mouvement/nouveau?sens=depense">− Dépense</a>
@@ -82,5 +90,23 @@ export async function afficher(main) {
         <div><strong>Frais généraux</strong><small>Dépenses et gains hors intervention (assurance, outillage…)</small></div>
         <span class="fleche">›</span>
       </a>
-    </div>`;
+    </div>
+
+    <h2>Interventions par client</h2>
+    ${groupes.map(g => `
+      <details class="groupe-client">
+        <summary>
+          <div>
+            <strong>${esc(g.client.nom)}</strong>
+            <small>${g.chantiers.length} intervention(s) · dernière le ${dateFr(g.derniere)}
+              ${g.aFacturer ? ` · 🔴 ${g.aFacturer}` : ''}${g.enAttente ? ` · 🟠 ${g.enAttente}` : ''}</small>
+          </div>
+          <span class="montant ${classeMarge(g.moy.benefice)}">${euros(g.moy.benefice)}</span>
+        </summary>
+        <div class="liste">
+          ${g.chantiers.slice(0, 5).map(c => ligneChantier(c, { sansClient: true })).join('')}
+        </div>
+        <a class="btn lien" href="#/client/${g.client.id}">Voir la fiche${g.chantiers.length > 5 ? ` et les ${g.chantiers.length} interventions` : ''} ›</a>
+      </details>`).join('') || '<p class="vide">Aucune intervention pour l\'instant.</p>'}
+`;
 }
