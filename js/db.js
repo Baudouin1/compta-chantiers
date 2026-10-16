@@ -13,8 +13,8 @@ export async function q(requete) {
   return data;
 }
 
-// Coût au km enregistré dans les réglages (0,60 € par défaut)
+// Ton coût au km : essence (0,60 € par défaut) + usure du véhicule
 export async function coutKm() {
-  const r = await q(db.from('reglages').select('cout_km').maybeSingle());
-  return r ? Number(r.cout_km) : 0.6;
+  const r = await q(db.from('reglages').select('*').maybeSingle());
+  return (r?.cout_km != null ? Number(r.cout_km) : 0.6) + Number(r?.usure_km || 0);
 }

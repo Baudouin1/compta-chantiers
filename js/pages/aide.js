@@ -26,8 +26,8 @@ const RUBRIQUES = [
       <li><strong>Sur devis</strong> : numéro et montant du devis. Mets quand même tes heures pour connaître
         ton taux horaire net.</li>
       <li><strong>Km facturés</strong> : pour un déplacement que tu factures au client (ex. 120 km × 0,50 €).</li>
-      <li><strong>Produits revendus</strong> : enregistre l'achat en dépense en cochant « Refacturé au client » :
-        il est ajouté à la facture avec ta marge.</li>
+      <li><strong>Produits revendus</strong> (ex. polish) : dans les frais, touche « ⚙️ Produit revendu » et mets
+        le prix d'achat : il est ajouté à la facture avec ta marge.</li>
       <li>Le <strong>montant facturé</strong> est calculé tout seul, mais tu peux le changer
         (heure offerte, geste commercial…).</li>
       <li>Les <strong>tarifs</strong> sont copiés au moment où tu crées l'intervention : si tu augmentes
@@ -42,8 +42,9 @@ const RUBRIQUES = [
       <li>⚪ <strong>À ne pas facturer</strong> : geste offert, remboursement…</li>
       <li>📝 Devis et 🔧 En cours : pour les plus gros chantiers.</li>
     </ul>
-    <p>Sur l'intervention, le gros bouton bleu te fait passer à l'étape suivante.
-      L'accueil te rappelle ce qu'il reste à facturer.</p>
+    <p>L'accueil regroupe ce qu'il reste à facturer <strong>par client</strong>, le plus ancien en premier
+      (pour ne pas faire trop d'avance de trésorerie). Quand tu as fait la facture dans Odoo,
+      touche <strong>✅ Facture faite dans Odoo</strong> : toutes ses interventions passent en 🟠 Facturé.</p>
     <p class="astuce">Devis, factures, paiements et relances se font dans <strong>Odoo</strong>.
       L'appli sert à savoir <strong>ce que tu gagnes vraiment</strong> sur chaque intervention.</p>`],
 
@@ -58,12 +59,12 @@ const RUBRIQUES = [
     </ul>`],
 
   ['⚡ Boutons rapides', `
-    <p><strong>🚗 Aller-retour</strong> : crée la dépense de déplacement en 2 touchers avec le trajet du client.
-      Tu peux choisir un autre trajet enregistré ou en taper un nouveau (et l'enregistrer pour la prochaine fois).</p>
-    <p>Le coût est calculé avec <em>ton coût au km</em> (Réglages › Mes tarifs) : c'est un frais réel.</p>
-    <p><strong>Tes propres boutons</strong> (« Péage », « Plein de produits »…) : crée-les dans
-      Réglages › Boutons rapides, ou avec le <strong>＋</strong> sur une intervention.
-      Ils ouvrent une dépense déjà remplie : il ne reste qu'à vérifier le montant.</p>`],
+    <p><strong>🚗 Aller-retour</strong> : sur une nouvelle intervention, l'aller-retour du client est ajouté tout seul.
+      Règle le <strong>nombre d'allers-retours</strong> avec − / +. Pour un autre lieu, touche « 🚗 Aller-retour »
+      et choisis un trajet enregistré, ou « Autre trajet » pour taper les km.</p>
+    <p>Le coût = km × (essence + usure du véhicule), réglés dans Réglages › Mes tarifs.</p>
+    <p><strong>Tes propres boutons</strong> (essence, gants…) : crée-les dans Réglages › Boutons rapides,
+      avec leur smiley et leur prix. Ils apparaissent dans chaque intervention avec un compteur.</p>`],
 
   ['🧾 Frais généraux', `
     <p>Pour une dépense qui n'est liée à aucune intervention (assurance, outillage, carburant du camion…) :

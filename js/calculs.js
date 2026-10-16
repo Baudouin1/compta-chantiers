@@ -11,8 +11,8 @@ const arrondi = v => Math.round(v * 100) / 100;
 // Tarifs généraux (Réglages > Mes tarifs)
 export async function tarifsGeneraux() {
   const { data } = await db.from('reglages').select('*').maybeSingle();
-  const t = { ...TARIFS_DEFAUT, cout_km: 0.6 };
-  for (const k of [...CHAMPS_TARIFS, 'cout_km']) if (data?.[k] != null) t[k] = Number(data[k]);
+  const t = { ...TARIFS_DEFAUT, cout_km: 0.6, usure_km: 0 };
+  for (const k of [...CHAMPS_TARIFS, 'cout_km', 'usure_km']) if (data?.[k] != null) t[k] = Number(data[k]);
   return t;
 }
 

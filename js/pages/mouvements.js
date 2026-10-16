@@ -17,14 +17,15 @@ export async function formulaire(main, { id, query }) {
     q(db.from('chantiers').select('id, nom, statut, clients(nom)').order('created_at', { ascending: false })),
   ]);
   const retour = m.chantier_id ? `/chantier/${m.chantier_id}` : '/frais';
-  titre(id ? 'Modifier le mouvement' : 'Nouveau mouvement', retour);
+  titre(id ? (m.sens === 'gain' ? 'Modifier le gain' : 'Modifier la dépense') : 'Nouvelle dépense', retour);
 
   main.innerHTML = `
     <form class="carte" id="form-mvt">
+      ${m.sens === 'gain' ? `
       <div class="segments">
-        <label class="depense"><input type="radio" name="sens" value="depense" ${m.sens === 'depense' ? 'checked' : ''}><span>− Dépense</span></label>
-        <label class="gain"><input type="radio" name="sens" value="gain" ${m.sens === 'gain' ? 'checked' : ''}><span>+ Gain</span></label>
-      </div>
+        <label class="depense"><input type="radio" name="sens" value="depense"><span>− Dépense</span></label>
+        <label class="gain"><input type="radio" name="sens" value="gain" checked><span>+ Gain</span></label>
+      </div>` : '<input type="hidden" name="sens" value="depense">'}
 
       <label>Montant (€) *
         <input name="montant" inputmode="decimal" required class="gros-montant"
@@ -55,7 +56,7 @@ export async function formulaire(main, { id, query }) {
         <input name="date" type="date" required value="${m.date}">
       </label>
 
-      <label>Intervention
+      <label ${m.chantier_id ? '' : 'hidden'}>Intervention
         <select name="chantier_id">
           <option value="">— Aucun (frais généraux) —</option>
           ${chantiers.map(c => `<option value="${c.id}" ${c.id === m.chantier_id ? 'selected' : ''}>
@@ -65,17 +66,17 @@ export async function formulaire(main, { id, query }) {
 
       <label class="case" id="champ-refacturable">
         <input type="checkbox" name="refacturable" ${m.refacturable ? 'checked' : ''}>
-        Refacturé au client (produit revendu, ajouté à la facture avec ta marge)
+        Refacturé au client (ajouté à sa facture avec ta marge)
       </label>
 
       <label>Note
         <textarea name="note" rows="2">${esc(m.note ?? '')}</textarea>
       </label>
 
-      <div class="justif">
-        <span class="titre-champ">📎 Facture ou ticket</span>
+      <details class="justif" ${m.photo_path ? 'open' : ''}>
+        <summary class="titre-champ">📎 Ticket ou facture (facultatif)</summary>
         <div id="justif-etat"></div>
-      </div>
+      </details>
 
       <button class="btn principal" type="submit">Enregistrer</button>
     </form>
@@ -90,13 +91,15 @@ export async function formulaire(main, { id, query }) {
     const actuelle = select.value || m.categorie;
     select.innerHTML = Object.entries(CATEGORIES[sens])
       .map(([k, v]) => `<option value="${k}" ${k === actuelle ? 'selected' : ''}>${iconeCategorie(sens, k)} ${v}</option>`).join('');
-    main.querySelector('#champ-refacturable').hidden = sens !== 'depense';
+    // Refacturer au client : seulement pour une dépense d'intervention (ex. aller-retours en plus du prévu)
+    main.querySelector('#champ-refacturable').hidden = sens !== 'depense' || !form.chantier_id.value;
     main.querySelector('#champ-paiement').hidden = sens !== 'gain';
     main.querySelector('#champ-sous-traitant').hidden = select.value !== 'sous_traitance';
     form.classList.toggle('mode-gain', sens === 'gain');
   }
   form.querySelectorAll('[name=sens]').forEach(r => r.onchange = majChamps);
   form.categorie.onchange = majChamps;
+  form.chantier_id.onchange = majChamps;
   majChamps();
   if (!id) form.montant.focus();
 
@@ -155,7 +158,7 @@ export async function formulaire(main, { id, query }) {
     if (data.sens === 'gain' && !data.mode_paiement) {
       throw new Error('Indique le mode de paiement (virement, chèque…) : il est obligatoire dans le livre des recettes.');
     }
-    if (data.sens === 'gain') data.refacturable = false;
+    if (data.sens === 'gain' || !data.chantier_id) data.refacturable = false;
     // Le mode de paiement ne concerne que les recettes
     if (data.sens === 'depense') { if (!m.mode_paiement) delete data.mode_paiement; else data.mode_paiement = null; }
     if (data.categorie !== 'sous_traitance') data.sous_traitant = null;

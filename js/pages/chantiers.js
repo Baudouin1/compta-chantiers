@@ -54,10 +54,53 @@ export async function liste(main, { query }) {
     const visibles = t
       ? chantiers.filter(c => `${c.nom} ${c.description} ${c.clients?.nom} ${c.clients?.bateau}`.toLowerCase().includes(t))
       : chantiers.filter(c => filtreStatut === 'tous' || c.statut === filtreStatut);
-    main.querySelector('#liste-chantiers').innerHTML =
-      visibles.map(c => ligneChantier(c)).join('') || '<p class="vide">Aucune intervention ici.</p>';
+    const zone = main.querySelector('#liste-chantiers');
+    if (!t && filtreStatut === 'a_facturer') {
+      zone.innerHTML = blocAFacturer(visibles, { detail: true });
+      return brancherAFacturer(main, () => liste(main, { query }));
+    }
+    zone.innerHTML = visibles.map(c => ligneChantier(c)).join('') || '<p class="vide">Aucune intervention ici.</p>';
   }
   dessiner();
+}
+
+// ---------- À facturer : regroupé par client (une seule facture Odoo pour plusieurs interventions) ----------
+
+export function blocAFacturer(chantiers, { detail = false } = {}) {
+  const parClient = {};
+  for (const c of chantiers.filter(c => c.statut === 'a_facturer')) {
+    (parClient[c.client_id] ||= { nom: c.clients?.nom || '?', liste: [] }).liste.push(c);
+  }
+  const groupes = Object.entries(parClient).map(([clientId, g]) => {
+    const debut = g.liste.map(c => c.date_debut || '').filter(Boolean).sort()[0];
+    const jours = debut ? Math.floor((Date.now() - new Date(debut)) / 86400000) : 0;
+    return { clientId, ...g, debut, jours, montant: g.liste.reduce((s, c) => s + calculer(c).facture, 0) };
+  }).sort((a, b) => b.jours - a.jours); // le plus ancien en premier : c'est lui qui pèse sur la trésorerie
+  if (!groupes.length) return detail ? '<p class="vide">Rien à facturer 👍</p>' : '';
+  return groupes.map(g => `
+    <div class="carte a-facturer">
+      <div class="a-facturer-tete">
+        <div>
+          <strong>🔴 ${esc(g.nom)}</strong>
+          <small>${g.liste.length} intervention(s) · depuis le ${dateFr(g.debut)}
+            ${g.jours >= 30 ? `<b class="neg">(${g.jours} jours)</b>` : g.jours ? `(${g.jours} jours)` : ''}</small>
+        </div>
+        <span class="montant">${euros(g.montant)}</span>
+      </div>
+      ${detail ? `<div class="liste">${g.liste.map(c => ligneChantier(c, { sansClient: true })).join('')}</div>` : ''}
+      <button class="btn" data-facture-client="${g.clientId}" data-nombre="${g.liste.length}" data-nom="${esc(g.nom)}">
+        ✅ Facture faite dans Odoo</button>
+    </div>`).join('');
+}
+
+// Bouton « Facture faite » : toutes les interventions à facturer du client passent en « Facturé »
+export function brancherAFacturer(main, rafraichir) {
+  main.querySelectorAll('[data-facture-client]').forEach(b => b.onclick = () => tenter(async () => {
+    if (!confirm(`Tu as fait la facture dans Odoo pour ${b.dataset.nom} ?\nSes ${b.dataset.nombre} intervention(s) à facturer passent en 🟠 Facturé.`)) return;
+    await q(db.from('chantiers').update({ statut: 'facture' }).eq('client_id', b.dataset.factureClient).eq('statut', 'a_facturer'));
+    toast('🟠 Facturé');
+    rafraichir();
+  }));
 }
 
 // Une ligne de chantier dans une liste (accueil, liste, fiche client)
@@ -112,13 +155,6 @@ export async function fiche(main, { id }) {
   if (r.produitsAchat) lignes.push([`Produits revendus : ${euros(r.produitsAchat)} + ${nombreFr(c.marge_produits)} %`, r.produitsFactures]);
   if (r.kmFactures) lignes.push([`Déplacement ${nombreFr(c.km_factures)} km × ${euros(c.prix_km)}`, r.kmFactures]);
 
-  // Bouton d'action selon le statut
-  const action = {
-    en_cours: ['🧾 Marquer « à facturer »', 'a_facturer'],
-    a_facturer: ['🧾 C\'est facturé (dans Odoo)', 'facture'],
-    facture: ['🟢 C\'est payé', 'paye'],
-  }[c.statut];
-
   main.innerHTML = `
     <div class="carte">
       <a class="client-lien" href="#/client/${c.clients.id}">
@@ -154,18 +190,14 @@ export async function fiche(main, { id }) {
         ${r.mode === 'heure' && r.consommables ? `<span>Consommables : <b class="${classeMarge(r.gainConso)}">${euros(r.gainConso)}</b></span>` : ''}
         ${r.gainProduits ? `<span>Gain produits : <b class="pos">${euros(r.gainProduits)}</b></span>` : ''}
       </div>
-      ${action ? `<button class="btn principal" id="action-statut" data-statut="${action[1]}">${action[0]}</button>` : ''}
-      <div class="deux-boutons">
-        <a class="btn" href="#/chantier/${c.id}/modifier?frais=1">➕ Ajouter des frais</a>
-        <a class="btn" href="#/chantier/${c.id}/modifier">✏️ Heures, montant</a>
-      </div>
+      <a class="btn principal" href="#/chantier/${c.id}/modifier?frais=1">✏️ Modifier : heures, frais, aller-retours</a>
     </div>
 
     <h2>Frais de l'intervention</h2>
     <a class="btn depense" href="#/mouvement/nouveau?chantier=${c.id}&sens=depense">− Dépense (avec ticket / photo)</a>
 
     <div class="rapides">
-      <a class="btn" href="#/deplacement?chantier=${c.id}">🚗 Aller-retour</a>
+      <a class="btn" href="#/chantier/${c.id}/modifier?frais=1">🚗 Aller-retour</a>
       ${boutons.map(b => `<a class="btn" href="#/chantier/${c.id}/modifier?frais=1&bouton=${b.id}">${esc(iconeBouton(b))} ${esc(b.libelle)}</a>`).join('')}
       <a class="btn ajout" href="#/reglages/bouton/nouveau" aria-label="Ajouter un bouton rapide">＋</a>
     </div>
@@ -215,8 +247,6 @@ export async function fiche(main, { id }) {
   }
   const selectStatut = main.querySelector('#statut');
   selectStatut.onchange = () => tenter(() => changerStatut(selectStatut.value, selectStatut));
-  const bouton = main.querySelector('#action-statut');
-  if (bouton) bouton.onclick = () => tenter(() => changerStatut(bouton.dataset.statut));
 }
 
 // Une ligne de mouvement (dépense ou gain)
@@ -343,25 +373,30 @@ export async function formulaire(main, { id, query }) {
   // Frais de l'intervention : chaque ligne = une dépense (aller-retour, consommables, produit revendu…)
   // On les modifie ici directement ; à l'enregistrement on crée / modifie / supprime les dépenses.
   const paiements = (c.mouvements || []).filter(m => m.sens === 'gain');
+  // Coût d'un km pour toi : essence (cout_km) + usure du véhicule
+  const coutKm = (generaux.cout_km || 0) + (generaux.usure_km || 0);
   let frais = (c.mouvements || []).filter(m => m.sens === 'depense').map(m => {
     const q = quantiteDepuis(m.description);
+    const description = q ? m.description.replace(RE_QTE, '') : (m.description || '');
+    const km = kmDepuis(description);
+    const ar = m.categorie === 'deplacement' && km != null;
     return {
-      id: m.id, categorie: m.categorie, description: q ? m.description.replace(RE_QTE, '') : (m.description || ''),
-      montant: Number(m.montant), refacturable: !!m.refacturable, photo_path: m.photo_path,
-      km: kmDepuis(m.description), qte: q?.qte ?? null, pu: q?.pu ?? null,
+      id: m.id, categorie: m.categorie, description, montant: Number(m.montant),
+      refacturable: !!m.refacturable, photo_path: m.photo_path, km, ar,
+      // Aller-retour enregistré avant le compteur : 1 aller-retour au prix déjà enregistré
+      qte: q?.qte ?? (ar ? 1 : null), pu: q?.pu ?? (ar ? Number(m.montant) : null),
     };
   });
   const fraisInitiaux = JSON.stringify(frais);
 
   const fraisActifs = () => frais.filter(f => !f.supprime);
   let boutonAjoute = false;
-  // Boutons rapides : chacun a son compteur dans le bloc Frais (0 = pas utilisé, non enregistré)
+  // Boutons rapides (essence, gants…) : chacun a son compteur dans le bloc Frais (0 = pas utilisé, non enregistré)
   for (const b of boutons) {
-    const f = frais.find(g => g.qte != null && g.rapide == null && g.description === b.libelle);
+    const f = frais.find(g => g.qte != null && !g.ar && g.rapide == null && g.description === b.libelle);
     if (f) f.rapide = b.id;
     else frais.push({ rapide: b.id, categorie: b.categorie, description: b.libelle, qte: 0, pu: Number(b.montant), montant: 0, refacturable: false });
   }
-  const boutonDe = f => boutons.find(b => b.id === f.rapide);
 
   const champNombre = (nom, label, valeur, extra = '') => `
     <label>${label}
@@ -412,11 +447,8 @@ export async function formulaire(main, { id, query }) {
         </div>
 
         <div class="bloc-frais" id="bloc-frais">
-          <h3>🧾 Frais de l'intervention</h3>
-          ${boutons.length ? `
-          <p class="aide sous-titre-frais">⚡ Combien tu en as utilisé ? (touche + ou tape le nombre)</p>
-          <div id="liste-rapides"></div>` : `<p class="aide sous-titre-frais"><a href="#/reglages/boutons">⚡ Crée tes boutons rapides</a> (produits que tu utilises souvent, avec leur prix)</p>`}
-          <p class="aide sous-titre-frais">Autres frais</p>
+          <h3>🧾 Frais</h3>
+          <p class="aide sous-titre-frais">Touche + ou tape le nombre : le montant se calcule tout seul.</p>
           <div id="liste-frais"></div>
           <div class="ajout-frais">
             <button type="button" class="puce" data-ajout="ar">🚗 Aller-retour</button>
@@ -424,6 +456,7 @@ export async function formulaire(main, { id, query }) {
             <button type="button" class="puce" data-ajout="produit">⚙️ Produit revendu</button>
             <button type="button" class="puce" data-ajout="autre">＋ Autre</button>
           </div>
+          ${boutons.length ? '' : `<p class="aide sous-titre-frais"><a href="#/reglages/boutons">⚡ Crée tes boutons rapides</a> (essence, gants… avec leur prix) : ils apparaîtront ici avec un compteur.</p>`}
           <div class="total-frais" id="total-frais"></div>
         </div>
         <label>Commentaire
@@ -555,132 +588,162 @@ export async function formulaire(main, { id, query }) {
     // ----- Lignes de frais -----
     const blocFrais = main.querySelector('#bloc-frais');
     const zoneFrais = main.querySelector('#liste-frais');
-    const zoneRapides = main.querySelector('#liste-rapides');
     const cl = () => clientPar[form.client_id.value];
+    const trajetClient = () => cl()?.trajet_km
+      ? { destination: cl().trajet_destination || cl().port || 'Trajet du client', km: Number(cl().trajet_km) } : null;
     const choixTrajets = () => [
-      ...(cl()?.trajet_km ? [{ destination: cl().trajet_destination || cl().port || 'Trajet du client', km: Number(cl().trajet_km) }] : []),
+      ...(trajetClient() ? [trajetClient()] : []),
       ...trajets.map(t => ({ destination: t.destination, km: Number(t.km) })),
     ];
-    const calculQte = f => `= <strong>${euros(f.montant)}</strong>`;
-    const compteur = f => `
+    const arrondi = n => Math.round(n * 100) / 100;
+    const compteur = (f, nom = 'Quantité') => `
       <span class="compteur">
         <button type="button" class="f-moins" aria-label="Un de moins" ${f.qte > 0 ? '' : 'disabled'}>−</button>
-        <input class="f-qte-val" inputmode="decimal" value="${nombreFr(f.qte)}" aria-label="Quantité">
+        <input class="f-qte-val" inputmode="decimal" value="${nombreFr(f.qte)}" aria-label="${nom}">
         <button type="button" class="f-plus" aria-label="Un de plus">+</button>
       </span>`;
-    function dessinerFrais() {
-      if (zoneRapides) zoneRapides.innerHTML = boutons.map(b => frais.find(f => f.rapide === b.id)).map(f => `
-        <div class="ligne-rapide ${f.qte > 0 ? 'actif' : ''}" data-i="${frais.indexOf(f)}">
-          <span class="pastille depense">${esc(iconeBouton(boutonDe(f)))}</span>
+    const total = f => `<span class="r-calc">= <strong>${euros(f.montant)}</strong></span>`;
+    const croix = '<button type="button" class="f-suppr" aria-label="Supprimer">✕</button>';
+
+    // Une ligne avec compteur : aller-retour (nombre d'allers-retours) ou bouton rapide (quantité)
+    function ligneCompteur(f) {
+      const i = frais.indexOf(f);
+      if (f.ar) {
+        const dest = f.description.replace(/^Aller-retour\s*/, '').replace(/\s*\(\s*[\d.,]+\s*km\s*\)/, '');
+        return `
+          <div class="ligne-rapide actif" data-i="${i}">
+            <span class="pastille depense">🚗</span>
+            <div class="corps">
+              <strong>Aller-retour ${dest ? esc(dest) : '(autre trajet)'}</strong>
+              <small class="f-km"><input class="f-km-val" inputmode="decimal" value="${f.km ? nombreFr(f.km) : ''}" placeholder="?" aria-label="Kilomètres par aller-retour"> km × ${prix(coutKm)} € / aller-retour</small>
+            </div>
+            ${croix}
+            <div class="r-bas">${compteur(f, 'Nombre d\'allers-retours')}${total(f)}</div>
+          </div>`;
+      }
+      const b = boutons.find(x => x.id === f.rapide);
+      return `
+        <div class="ligne-rapide ${f.qte > 0 ? 'actif' : ''}" data-i="${i}">
+          <span class="pastille depense">${esc(b ? iconeBouton(b) : iconeCategorie('depense', f.categorie))}</span>
           <div class="corps">
             <strong>${esc(f.description)}</strong>
             <small>${prix(f.pu)} € l'unité</small>
           </div>
-          <div class="r-bas">${compteur(f)}<span class="r-calc">${calculQte(f)}</span></div>
-        </div>`).join('');
-      const actifs = fraisActifs().filter(f => !f.rapide);
-      zoneFrais.innerHTML = actifs.length ? actifs.map(f => {
-        const k = frais.indexOf(f);
-        const estAR = f.categorie === 'deplacement' && f.km != null;
-        return `
-          <div class="ligne-frais" data-i="${k}">
-            <span class="pastille depense">${iconeCategorie('depense', f.categorie)}</span>
-            <div class="corps">
-              <input class="f-desc" value="${esc(f.description)}" placeholder="${esc(nomCategorie('depense', f.categorie))}">
-              <div class="sous-ligne">
-                ${estAR
-                  ? `<span class="f-km"><input class="f-km-val" inputmode="decimal" value="${nombreFr(f.km)}"> km × ${euros(generaux.cout_km)}</span>`
-                  : f.qte != null
-                  ? compteur(f)
-                  : `<label class="case petite"><input type="checkbox" class="f-refac" ${f.refacturable ? 'checked' : ''}> Refacturé au client</label>`}
-                <span class="f-euros"><input class="f-montant" inputmode="decimal" value="${f.montant != null ? (estAR || f.qte != null ? prix(f.montant) : nombreFr(f.montant)) : ''}" placeholder="0,00" ${estAR || f.qte != null ? 'readonly' : ''}> €</span>
-              </div>
-              ${f.qte != null ? `<small class="f-pu">Quantité × ${prix(f.pu)} € l'unité</small>` : ''}
-              ${f.photo_path ? '<small class="aide">📎 justificatif joint</small>' : ''}
+          ${b ? '' : croix}
+          <div class="r-bas">${compteur(f)}${total(f)}</div>
+        </div>`;
+    }
+    // Une ligne libre : consommables, produit revendu, autre (on tape le montant)
+    function ligneLibre(f) {
+      return `
+        <div class="ligne-frais" data-i="${frais.indexOf(f)}">
+          <span class="pastille depense">${iconeCategorie('depense', f.categorie)}</span>
+          <div class="corps">
+            <input class="f-desc" value="${esc(f.description)}" placeholder="${f.refacturable ? 'Produit (ex. polish)' : esc(nomCategorie('depense', f.categorie))}">
+            <div class="sous-ligne">
+              <small class="aide">${f.refacturable ? 'Prix d\'achat · refacturé avec ta marge' : ''}</small>
+              <span class="f-euros"><input class="f-montant" inputmode="decimal" value="${f.montant != null ? nombreFr(f.montant) : ''}" placeholder="0,00"> €</span>
             </div>
-            <button type="button" class="f-suppr" aria-label="Supprimer">✕</button>
-          </div>`;
-      }).join('') : '';
+            ${f.photo_path ? '<small class="aide">📎 justificatif joint</small>' : ''}
+          </div>
+          ${croix}
+        </div>`;
+    }
+    function dessinerFrais() {
+      const actifs = fraisActifs();
+      zoneFrais.innerHTML = [
+        ...actifs.filter(f => f.ar).map(ligneCompteur),
+        ...boutons.map(b => actifs.find(f => f.rapide === b.id)).filter(Boolean).map(ligneCompteur),
+        ...actifs.filter(f => !f.ar && !f.rapide && f.qte != null).map(ligneCompteur),
+        ...actifs.filter(f => !f.ar && f.qte == null).map(ligneLibre),
+      ].join('');
       majTotal();
     }
+    function majTotal() {
+      const t = fraisActifs().reduce((x, g) => x + (g.montant || 0), 0);
+      main.querySelector('#total-frais').innerHTML = t ? `Total des frais <strong>${euros(t)}</strong>` : '';
+    }
+    // Recalcule une ligne à compteur (montant = nombre × prix)
+    function majLigne(ligne, f, ecrire = true) {
+      f.montant = arrondi((f.qte || 0) * (f.pu || 0));
+      ligne.querySelector('.r-calc').innerHTML = `= <strong>${euros(f.montant)}</strong>`;
+      ligne.querySelector('.f-moins').disabled = !(f.qte > 0);
+      if (!f.ar) ligne.classList.toggle('actif', f.qte > 0);
+      if (ecrire) ligne.querySelector('.f-qte-val').value = nombreFr(f.qte);
+    }
+    const apres = () => { majApercu(); majTotal(); };
+
     blocFrais.addEventListener('input', e => {
       const ligne = e.target.closest('[data-i]'); if (!ligne) return;
       const f = frais[ligne.dataset.i];
-      if (e.target.classList.contains('f-desc')) f.description = e.target.value;
-      if (e.target.classList.contains('f-montant')) f.montant = lireNombre(e.target.value);
-      if (e.target.classList.contains('f-km-val')) {
-        f.km = lireNombre(e.target.value);
-        f.montant = f.km ? Math.round(f.km * generaux.cout_km * 100) / 100 : 0;
-        f.description = f.description.replace(/\(\s*[\d.,]+\s*km\s*\)/, `(${nombreFr(f.km || 0)} km)`);
-        ligne.querySelector('.f-montant').value = f.montant.toFixed(2).replace('.', ',');
-        ligne.querySelector('.f-desc').value = f.description;
+      const cls = e.target.classList;
+      if (cls.contains('f-desc')) f.description = e.target.value;
+      if (cls.contains('f-montant')) f.montant = lireNombre(e.target.value);
+      if (cls.contains('f-qte-val')) { f.qte = Math.max(0, lireNombre(e.target.value) || 0); majLigne(ligne, f, false); }
+      if (cls.contains('f-km-val')) {
+        f.km = lireNombre(e.target.value) || 0;
+        f.pu = arrondi(f.km * coutKm);
+        f.description = /\(\s*[\d.,]+\s*km\s*\)/.test(f.description)
+          ? f.description.replace(/\(\s*[\d.,]+\s*km\s*\)/, `(${nombreFr(f.km)} km)`)
+          : `${f.description} (${nombreFr(f.km)} km)`;
+        f.auto = false;
+        majLigne(ligne, f);
       }
-      if (e.target.classList.contains('f-qte-val')) {
-        f.qte = Math.max(0, lireNombre(e.target.value) || 0); // jamais en dessous de 0
-        majQuantite(ligne, f, false);
-      }
-      majApercu(); majTotal();
+      apres();
     });
-    function majTotal() {
-      const total = fraisActifs().reduce((x, g) => x + (g.montant || 0), 0);
-      const t = main.querySelector('#total-frais');
-      t.innerHTML = total ? `Total des frais <strong>${euros(total)}</strong>` : '';
-    }
-    function majQuantite(ligne, f, ecrire = true) {
-      f.montant = Math.round(f.qte * f.pu * 100) / 100;
-      const m = ligne.querySelector('.f-montant'); if (m) m.value = prix(f.montant);
-      const c = ligne.querySelector('.r-calc'); if (c) c.innerHTML = calculQte(f);
-      ligne.querySelector('.f-moins').disabled = !(f.qte > 0);
-      if (ligne.classList.contains('ligne-rapide')) ligne.classList.toggle('actif', f.qte > 0);
-      if (ecrire) ligne.querySelector('.f-qte-val').value = nombreFr(f.qte);
-    }
     blocFrais.addEventListener('change', e => {
-      // Quand il quitte la case : on réécrit le nombre propre (ex. "-3" ou "abc" -> 0)
-      if (e.target.classList.contains('f-qte-val')) {
-        const ligne = e.target.closest('[data-i]');
-        majQuantite(ligne, frais[ligne.dataset.i]);
-      }
-      if (!e.target.classList.contains('f-refac')) return;
-      frais[e.target.closest('.ligne-frais').dataset.i].refacturable = e.target.checked;
-      majApercu();
+      // En quittant la case, on réécrit le nombre propre (ex. "-3" ou "abc" -> 0)
+      if (!e.target.classList.contains('f-qte-val')) return;
+      const ligne = e.target.closest('[data-i]');
+      majLigne(ligne, frais[ligne.dataset.i]);
     });
     blocFrais.addEventListener('click', e => {
       const pas = e.target.classList.contains('f-plus') ? 1 : e.target.classList.contains('f-moins') ? -1 : 0;
       if (pas) {
         const ligne = e.target.closest('[data-i]'), f = frais[ligne.dataset.i];
-        f.qte = Math.max(0, Math.round(((f.qte || 0) + pas) * 100) / 100);
-        majQuantite(ligne, f); majApercu(); majTotal();
+        f.qte = Math.max(0, arrondi((f.qte || 0) + pas)); // jamais en dessous de 0
+        f.auto = false;
+        majLigne(ligne, f); apres();
         return;
       }
       if (!e.target.classList.contains('f-suppr')) return;
-      const f = frais[e.target.closest('.ligne-frais').dataset.i];
+      const f = frais[e.target.closest('[data-i]').dataset.i];
       if (f.photo_path && !confirm('Ce frais a un justificatif (photo / PDF). Le supprimer aussi ?')) return;
       f.supprime = true;
       dessinerFrais(); majApercu();
     });
+
+    function ajouterAR(t, auto = false) {
+      const km = t?.km ?? null;
+      frais.push({
+        categorie: 'deplacement', ar: true, auto, km, qte: 1, pu: arrondi((km || 0) * coutKm), montant: arrondi((km || 0) * coutKm),
+        description: `Aller-retour ${t?.destination || ''}${km != null ? ` (${nombreFr(km)} km)` : ''}`.trim(), refacturable: false,
+      });
+      dessinerFrais(); majApercu();
+      if (km == null) [...zoneFrais.querySelectorAll('.f-km-val')].pop()?.focus();
+    }
+    // Nouvelle intervention : l'aller-retour du client est ajouté tout seul (1 aller-retour)
+    function arAutomatique() {
+      if (id) return;
+      frais.filter(f => f.auto && !f.supprime).forEach(f => { f.supprime = true; });
+      if (!fraisActifs().some(f => f.ar) && trajetClient()) ajouterAR(trajetClient(), true);
+    }
+
     main.querySelectorAll('[data-ajout]').forEach(b => b.onclick = () => {
       const type = b.dataset.ajout;
       if (type === 'ar') {
         const options = choixTrajets();
-        const ajouterAR = t => {
-          const km = t?.km ?? null;
-          frais.push({ categorie: 'deplacement', km, montant: km ? Math.round(km * generaux.cout_km * 100) / 100 : 0,
-            description: `Aller-retour ${t?.destination || ''} (${nombreFr(km || 0)} km)`.replace('  ', ' '), refacturable: false });
-          dessinerFrais(); majApercu();
-          if (!km) zoneFrais.querySelector('.ligne-frais:last-of-type .f-km-val')?.focus();
-        };
-        if (options.length > 1) {
-          menuChoix('Quel trajet ?', [...options.map(t => ({ texte: `🚗 ${esc(t.destination)} · ${nombreFr(t.km)} km`, action: () => ajouterAR(t) })),
-            { texte: '✏️ Autre trajet (je tape les km)', action: () => ajouterAR(null) }]);
-        } else ajouterAR(options[0] || null);
-        return;
+        return menuChoix('Quel trajet ?', [
+          ...options.map(t => ({ texte: `🚗 ${esc(t.destination)} · ${nombreFr(t.km)} km`, action: () => ajouterAR(t) })),
+          { texte: '✏️ Autre trajet (je tape les km)', action: () => ajouterAR({ destination: '', km: null }) },
+        ]);
       }
       const modele = {
         conso: { categorie: 'produits', description: 'Consommables', refacturable: false },
         produit: { categorie: 'pieces', description: '', refacturable: true },
         autre: { categorie: 'autre', description: '', refacturable: false },
       }[type];
-      frais.push({ montant: null, ...modele });
+      frais.push({ montant: null, qte: null, ...modele });
       dessinerFrais(); majApercu();
       const lignes = zoneFrais.querySelectorAll('.ligne-frais');
       const derniere = lignes[lignes.length - 1];
@@ -689,10 +752,11 @@ export async function formulaire(main, { id, query }) {
     function ajouterBouton(x) {
       const f = frais.find(g => g.rapide === x.id);
       f.qte += 1;
-      f.montant = Math.round(f.qte * f.pu * 100) / 100;
+      f.montant = arrondi(f.qte * f.pu);
       dessinerFrais(); majApercu();
-      zoneRapides.querySelector(`[data-i="${frais.indexOf(f)}"]`)?.classList.add('flash');
+      zoneFrais.querySelector(`[data-i="${frais.indexOf(f)}"]`)?.classList.add('flash');
     }
+    arAutomatique();
     dessinerFrais();
     // Arrivé depuis un bouton rapide de la fiche : on l'ajoute une seule fois
     const venuDuBouton = !boutonAjoute && boutons.find(b => b.id === query.bouton);

@@ -2,7 +2,7 @@
 import { db, q } from '../db.js';
 import { esc, euros, dateFr, titre, classeMarge } from '../utils.js';
 import { calculer, moyennes } from '../calculs.js';
-import { ligneChantier, CHAMPS_LISTE } from './chantiers.js';
+import { ligneChantier, CHAMPS_LISTE, blocAFacturer, brancherAFacturer } from './chantiers.js';
 
 export async function afficher(main) {
   titre('BluePrestige');
@@ -68,8 +68,9 @@ export async function afficher(main) {
 
     <a class="btn principal grand-bouton" href="#/chantier/nouveau">+ Nouvelle intervention</a>
 
-    ${aFacturer.length ? `<a class="alerte rouge" href="#/chantiers?statut=a_facturer">
-      🔴 <span><strong>${aFacturer.length} à facturer dans Odoo</strong> · ${euros(somme(aFacturer, 'facture'))}</span> ›</a>` : ''}
+    ${aFacturer.length ? `
+    <h2>À facturer dans Odoo · ${euros(somme(aFacturer, 'facture'))}</h2>
+    ${blocAFacturer(chantiers)}` : ''}
 
     ${graphiqueMois(chantiers, maintenant)}
 
@@ -83,13 +84,13 @@ export async function afficher(main) {
       </a>
     </div>
 
-    <h2>Interventions par client</h2>
+    <h2>CA / client</h2>
     ${groupes.map(g => `
       <details class="groupe-client">
         <summary>
           <div>
             <strong>${esc(g.client.nom)}</strong>
-            <small>${g.chantiers.length} intervention(s) · dernière le ${dateFr(g.derniere)}
+            <small>${g.chantiers.length} intervention(s) · moyenne ${euros(g.moy.facture / g.chantiers.length)} / intervention · dernière le ${dateFr(g.derniere)}
               ${g.aFacturer ? ` · 🔴 ${g.aFacturer}` : ''}</small>
           </div>
           <div class="montant-double">
@@ -104,39 +105,72 @@ export async function afficher(main) {
       </details>`).join('') || '<p class="vide">Aucune intervention pour l\'instant.</p>'}
 `;
   brancherGraphique(main);
+  brancherAFacturer(main, () => afficher(main));
 }
 
-// ---------- Graphique : chiffre d'affaires (facturé) des 12 derniers mois ----------
+// ---------- Graphique : chiffre d'affaires (facturé) des 12 derniers mois, en courbe ----------
+// La courbe est un SVG étiré ; les points, le repère et la bulle sont en HTML (positions en %)
 function graphiqueMois(chantiers, maintenant) {
   const mois = Array.from({ length: 12 }, (_, i) => {
     const d = new Date(maintenant.getFullYear(), maintenant.getMonth() - 11 + i, 1);
     const prefixe = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     return { d, ...moyennes(chantiers.filter(c => (c.date_debut || '').startsWith(prefixe))) };
   });
-  const max = Math.max(1, ...mois.map(m => m.facture));
+  const max = Math.max(1, ...mois.map(m => m.facture)) * 1.1; // un peu de marge en haut
+  const x = i => (i + 0.5) * (100 / 12);          // milieu de chaque mois, en %
+  const y = v => 100 - (v / max) * 100;            // 0 en bas, en %
+  const ligne = mois.map((m, i) => `${x(i)},${y(m.facture)}`).join(' ');
   const nom = d => d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-  const detail = m => `${nom(m.d)} · <strong>${euros(m.facture)}</strong> facturé · net ${euros(m.benefice)}`;
   return `
     <div class="carte graphique">
       <h3>📈 Chiffre d'affaires par mois</h3>
-      <p class="graphique-detail" aria-live="polite">${detail(mois[11])}</p>
-      <div class="graphique-barres" role="list">
-        ${mois.map((m, i) => `
-          <button type="button" class="g-col ${i === 11 ? 'choisi' : ''}" role="listitem"
-            data-detail="${esc(detail(m))}" aria-label="${nom(m.d)} : ${euros(m.facture)} facturé">
-            <span class="g-piste"><span class="g-barre" style="height:${(m.facture / max) * 100}%"></span></span>
-            <span class="g-mois">${m.d.toLocaleDateString('fr-FR', { month: 'narrow' })}</span>
-          </button>`).join('')}
+      <p class="aide g-aide">Passe le doigt (ou la souris) sur la courbe pour voir le montant.</p>
+      <div class="g-zone">
+        <div class="g-grille" style="top:${y(max / 1.1 / 2)}%"><span>${euros(max / 1.1 / 2)}</span></div>
+        <div class="g-grille" style="top:${y(max / 1.1)}%"><span>${euros(max / 1.1)}</span></div>
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <polygon class="g-aire" points="${x(0)},100 ${ligne} ${x(11)},100"></polygon>
+          <polyline class="g-ligne" points="${ligne}" vector-effect="non-scaling-stroke"></polyline>
+        </svg>
+        <div class="g-repere" hidden></div>
+        ${mois.map((m, i) => `<span class="g-point ${i === 11 ? 'dernier' : ''}" style="left:${x(i)}%;top:${y(m.facture)}%"></span>`).join('')}
+        <div class="g-bulle" hidden></div>
+        <div class="g-cibles">
+          ${mois.map((m, i) => `<button type="button" data-i="${i}" data-x="${x(i)}" data-y="${y(m.facture)}"
+            data-titre="${esc(nom(m.d))}" data-facture="${esc(euros(m.facture))}" data-net="${esc(euros(m.benefice))}"
+            aria-label="${esc(nom(m.d))} : ${esc(euros(m.facture))} facturé"></button>`).join('')}
+        </div>
       </div>
-      <p class="aide g-aide">Touche une barre pour voir le mois.</p>
+      <div class="g-mois">${mois.map(m => `<span>${m.d.toLocaleDateString('fr-FR', { month: 'narrow' })}</span>`).join('')}</div>
     </div>`;
 }
 
 function brancherGraphique(main) {
-  const detail = main.querySelector('.graphique-detail');
-  main.querySelectorAll('.g-col').forEach(b => b.onclick = () => {
-    main.querySelector('.g-col.choisi')?.classList.remove('choisi');
-    b.classList.add('choisi');
-    detail.innerHTML = b.dataset.detail;
+  const zone = main.querySelector('.g-zone');
+  if (!zone) return;
+  const bulle = zone.querySelector('.g-bulle'), repere = zone.querySelector('.g-repere');
+  const points = zone.querySelectorAll('.g-point');
+  const montrer = b => {
+    const x = Number(b.dataset.x);
+    repere.hidden = false; repere.style.left = `${x}%`;
+    bulle.hidden = false;
+    bulle.innerHTML = `<small>${b.dataset.titre}</small><strong>${b.dataset.facture}</strong><small>net ${b.dataset.net}</small>`;
+    // la bulle reste dans le cadre : à droite du point, ou à gauche pour les derniers mois
+    bulle.style.left = x > 60 ? '' : `calc(${x}% + 10px)`;
+    bulle.style.right = x > 60 ? `calc(${100 - x}% + 10px)` : '';
+    points.forEach((p, i) => p.classList.toggle('actif', String(i) === b.dataset.i));
+  };
+  const cacher = () => { bulle.hidden = true; repere.hidden = true; points.forEach(p => p.classList.remove('actif')); };
+  zone.querySelectorAll('.g-cibles button').forEach(b => {
+    b.onpointerenter = () => montrer(b);
+    b.onclick = () => montrer(b);
+    b.onfocus = () => montrer(b);
   });
+  zone.onpointerleave = e => { if (e.pointerType === 'mouse') cacher(); };
+  // Glisser le doigt sur la courbe
+  zone.addEventListener('touchmove', e => {
+    const t = e.touches[0];
+    const el = document.elementFromPoint(t.clientX, t.clientY);
+    if (el?.dataset?.x) { e.preventDefault(); montrer(el); }
+  }, { passive: false });
 }

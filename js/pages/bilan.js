@@ -1,7 +1,7 @@
 // Bilan de l'année : rentabilité des interventions, clients, dépenses (factures et paiements : dans Odoo)
 import { db, q } from '../db.js';
 import { esc, euros, titre, totaux, classeMarge, nomCategorie, iconeCategorie, heuresFr } from '../utils.js';
-import { moyennes } from '../calculs.js';
+import { moyennes, calculer } from '../calculs.js';
 
 export async function afficher(main, { query }) {
   const annee = Number(query.annee) || new Date().getFullYear();
@@ -38,6 +38,10 @@ export async function afficher(main, { query }) {
   const clients = Object.values(parClient)
     .map(x => ({ client: x.client, ...moyennes(x.chantiers) }))
     .sort((a, b) => b.benefice - a.benefice);
+
+  // Déplacements : ce que tu factures en km au client / ce que te coûtent tes trajets
+  const depFacture = chantiers.reduce((s, c) => s + (calculer(c).kmFactures || 0), 0);
+  const depCout = mvts.filter(m => m.sens === 'depense' && m.categorie === 'deplacement').reduce((s, m) => s + Number(m.montant), 0);
 
   // Dépenses par catégorie
   const parCategorie = {};
@@ -81,6 +85,15 @@ export async function afficher(main, { query }) {
             <span class="montant ${classeMarge(m.benefice)}">${m.nombre ? euros(m.benefice) : '–'}</span>
           </div>`).join('')}
       </div>
+    </div>
+
+    <h2>🚗 Déplacements : rentable ?</h2>
+    <div class="carte">
+      <div class="info"><span>Facturé en déplacement (km facturés aux clients)</span><div><strong class="pos">${euros(depFacture)}</strong></div></div>
+      <div class="info"><span>Coût de tes déplacements (aller-retours, essence…)</span><div><strong class="neg">${euros(depCout)}</strong></div></div>
+      <div class="info"><span>Résultat sur les déplacements</span><div><strong class="${classeMarge(depFacture - depCout)}">${euros(depFacture - depCout)}</strong></div></div>
+      <p class="aide">Les aller-retours des interventions comptent déjà l'essence et l'usure au km (Réglages › Mes tarifs).
+        Si tu notes aussi tes pleins d'essence dans les frais généraux, l'essence est comptée deux fois.</p>
     </div>
 
     ${clients.length ? `

@@ -123,10 +123,14 @@ export async function tarifs(main) {
           <input name="${k}" inputmode="decimal" required value="${nombreFr(t[k])}">
         </label>`).join('')}
       <h3>Mes frais</h3>
-      <label>Mon coût réel au km (€/km)
+      <label>Essence au km (€/km)
         <input name="cout_km" inputmode="decimal" required value="${nombreFr(t.cout_km)}">
       </label>
-      <p class="aide">Utilisé par le bouton « Aller-retour » pour calculer tes frais de déplacement.</p>
+      <label>Usure du véhicule au km (€/km)
+        <input name="usure_km" inputmode="decimal" required value="${nombreFr(t.usure_km)}">
+        <small class="aide">Entretien, pneus, assurance… ramenés au km. Mets 0 si tu ne veux pas le compter.</small>
+      </label>
+      <p class="aide">Un aller-retour te coûte : km × (essence + usure). L'appli le calcule toute seule dans chaque intervention.</p>
       <button class="btn principal" type="submit">Enregistrer</button>
     </form>`;
 

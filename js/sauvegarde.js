@@ -391,7 +391,8 @@ export async function fabriquerSauvegarde(email) {
     ['Consommables minimum', generaux.conso_min, EUROS],
     ['Prix du km facturé', generaux.prix_km_facture, EUROS],
     ['Marge sur produits revendus', generaux.marge_produits / 100, POURCENT],
-    ['Mon coût au km', generaux.cout_km, EUROS],
+    ['Essence au km', generaux.cout_km, EUROS],
+    ['Usure du véhicule au km', generaux.usure_km, EUROS],
   ].forEach(([l, v, f], i) => { F.case(1 + i, 0, l); F.case(1 + i, 1, v, { font: { bold: true } }, f); });
   F.largeurs[0] = { wch: 36 }; F.largeurs[1] = { wch: 14 };
   let r = 10;

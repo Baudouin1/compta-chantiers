@@ -459,7 +459,7 @@ label.case.petite input { width: 20px; height: 20px; min-height: 20px; }
 
 /* Boutons rapides dans le bloc Frais : un compteur par produit */
 .ligne-rapide {
-  display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 6px 10px;
+  display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 6px 10px;
   background: var(--carte); border-radius: 12px; padding: 8px 10px; margin-bottom: 6px; opacity: .75;
 }
 .ligne-rapide.actif { opacity: 1; box-shadow: inset 0 0 0 2px var(--ciel); }
@@ -467,7 +467,11 @@ label.case.petite input { width: 20px; height: 20px; min-height: 20px; }
 .ligne-rapide .corps { min-width: 0; }
 .ligne-rapide .corps strong { display: block; }
 .ligne-rapide .corps small { color: var(--gris); font-size: 13px; }
-.ligne-rapide .r-bas { grid-column: 2; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ligne-rapide .corps { grid-column: 2; }
+.ligne-rapide .f-suppr { grid-column: 3; background: none; border: none; color: var(--gris); font-size: 18px; padding: 8px 0; cursor: pointer; }
+.ligne-rapide .r-bas { grid-column: 2 / 4; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ligne-rapide .f-km { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.ligne-rapide .f-km input { width: 64px; margin: 0; min-height: 36px; padding: 6px; text-align: center; font-size: 16px; }
 .ligne-rapide .r-calc { color: var(--gris); font-size: 15px; white-space: nowrap; }
 .ligne-rapide .r-calc strong { color: var(--rouge); font-size: 17px; }
 .ligne-rapide:not(.actif) .r-calc strong { color: var(--gris); }
@@ -499,15 +503,36 @@ details.replie summary::-webkit-details-marker { display: none; }
 details.replie summary::after { content: ' ›'; }
 details.replie[open] summary { margin-bottom: 8px; }
 
-/* Graphique du chiffre d'affaires (accueil) */
-.graphique h3 { margin: 0 0 4px; }
-.graphique-detail { margin: 0 0 12px; font-size: 14px; color: var(--gris); min-height: 20px; }
-.graphique-detail strong { color: var(--texte); }
-.graphique-barres { display: grid; grid-template-columns: repeat(12, 1fr); height: 150px; }
-.g-col { display: flex; flex-direction: column; align-items: stretch; background: none; border: 0; padding: 0; cursor: pointer; min-width: 0; }
-.g-piste { flex: 1; display: flex; align-items: flex-end; justify-content: center; border-radius: 6px 6px 0 0; border-bottom: 1px solid var(--bord); }
-.g-col.choisi .g-piste { background: var(--ciel-clair); }
-.g-barre { width: 70%; max-width: 22px; min-height: 2px; background: var(--ciel); border-radius: 4px 4px 0 0; }
-.g-col.choisi .g-barre { background: var(--marine-2); }
-.g-mois { font-size: 11px; color: var(--gris); text-align: center; padding-top: 4px; text-transform: uppercase; }
-.graphique-barres + .g-aide { margin: 8px 0 0; font-size: 12.5px; }
+/* Graphique du chiffre d'affaires (accueil) : courbe */
+.graphique h3 { margin: 0 0 2px; }
+.graphique .g-aide { margin: 0 0 14px; font-size: 12.5px; }
+.g-zone { position: relative; height: 150px; margin: 0 4px; border-bottom: 1px solid var(--bord); touch-action: pan-y; }
+.g-zone svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.g-ligne { fill: none; stroke: var(--ciel); stroke-width: 2px; stroke-linejoin: round; stroke-linecap: round; }
+.g-aire { fill: var(--ciel); opacity: .1; }
+.g-grille { position: absolute; left: 0; right: 0; border-top: 1px dashed var(--bord); }
+.g-grille span { position: absolute; left: 0; top: -16px; font-size: 10.5px; color: var(--gris); }
+.g-point { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--ciel); box-shadow: 0 0 0 2px var(--carte); pointer-events: none; }
+.g-point.dernier { background: var(--marine-2); }
+.g-point.actif { width: 12px; height: 12px; margin: -6px 0 0 -6px; background: var(--marine-2); }
+.g-repere { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--gris); opacity: .4; pointer-events: none; }
+.g-bulle {
+  position: absolute; top: 0; z-index: 2; pointer-events: none; background: var(--marine); color: #fff;
+  border-radius: 10px; padding: 6px 10px; box-shadow: var(--ombre); white-space: nowrap;
+}
+.g-bulle small { display: block; font-size: 11.5px; opacity: .8; }
+.g-bulle strong { display: block; font-size: 16px; }
+.g-cibles { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(12, 1fr); }
+.g-cibles button { background: none; border: 0; padding: 0; cursor: crosshair; }
+.g-mois { display: grid; grid-template-columns: repeat(12, 1fr); margin: 4px 4px 0; }
+.g-mois span { font-size: 11px; color: var(--gris); text-align: center; text-transform: uppercase; }
+
+/* Pas de zoom quand on touche vite deux fois un bouton (+ / −…) sur iPhone */
+html, a, button, input, .btn, .puce, label, summary { touch-action: manipulation; }
+
+/* À facturer dans Odoo : une carte par client */
+.a-facturer { border-left: 4px solid var(--rouge); }
+.a-facturer-tete { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.a-facturer-tete small { display: block; color: var(--gris); font-size: 13px; margin-top: 2px; }
+.a-facturer .liste { margin-top: 10px; }
+.a-facturer .btn { margin: 10px 0 0; }
