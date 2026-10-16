@@ -77,8 +77,8 @@ export function ligneChantier(c, { sansClient = false } = {}) {
         <span class="statut ${c.statut}">${STATUTS[c.statut] || c.statut}</span>
       </div>
       <div class="montant-double">
-        <span class="montant ${classeMarge(r.benefice)}">${euros(r.benefice)}</span>
-        <small>${r.facture ? 'facturé ' + euros(r.facture) : ''}</small>
+        <span class="montant">${euros(r.facture)}</span>
+        <small class="${classeMarge(r.benefice)}">net ${euros(r.benefice)}</small>
       </div>
     </a>`;
 }

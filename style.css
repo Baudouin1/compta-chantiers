@@ -354,6 +354,8 @@ details.carte p, details.carte ul { line-height: 1.45; font-size: 15.5px; }
 .statut-pastille { background: var(--fond); font-size: 18px; }
 .montant-double { text-align: right; white-space: nowrap; }
 .montant-double small { display: block; color: var(--gris); font-size: 12.5px; margin-top: 2px; }
+.montant-double small.pos { color: var(--vert); font-weight: 600; }
+.montant-double small.neg { color: var(--rouge); font-weight: 600; }
 
 .segments.trois { grid-template-columns: repeat(3, 1fr); }
 .segments.trois span { font-size: 14px; padding: 11px 4px; }
@@ -496,3 +498,16 @@ details.replie summary { cursor: pointer; font-weight: 600; color: var(--gris); 
 details.replie summary::-webkit-details-marker { display: none; }
 details.replie summary::after { content: ' ›'; }
 details.replie[open] summary { margin-bottom: 8px; }
+
+/* Graphique du chiffre d'affaires (accueil) */
+.graphique h3 { margin: 0 0 4px; }
+.graphique-detail { margin: 0 0 12px; font-size: 14px; color: var(--gris); min-height: 20px; }
+.graphique-detail strong { color: var(--texte); }
+.graphique-barres { display: grid; grid-template-columns: repeat(12, 1fr); height: 150px; }
+.g-col { display: flex; flex-direction: column; align-items: stretch; background: none; border: 0; padding: 0; cursor: pointer; min-width: 0; }
+.g-piste { flex: 1; display: flex; align-items: flex-end; justify-content: center; border-radius: 6px 6px 0 0; border-bottom: 1px solid var(--bord); }
+.g-col.choisi .g-piste { background: var(--ciel-clair); }
+.g-barre { width: 70%; max-width: 22px; min-height: 2px; background: var(--ciel); border-radius: 4px 4px 0 0; }
+.g-col.choisi .g-barre { background: var(--marine-2); }
+.g-mois { font-size: 11px; color: var(--gris); text-align: center; padding-top: 4px; text-transform: uppercase; }
+.graphique-barres + .g-aide { margin: 8px 0 0; font-size: 12.5px; }

@@ -1,6 +1,6 @@
 // Écran d'accueil : le mois en cours, ce qu'il reste à facturer / encaisser, dernières interventions
 import { db, q } from '../db.js';
-import { esc, euros, dateFr, titre, heuresFr, classeMarge } from '../utils.js';
+import { esc, euros, dateFr, titre, classeMarge } from '../utils.js';
 import { calculer, moyennes } from '../calculs.js';
 import { ligneChantier, CHAMPS_LISTE } from './chantiers.js';
 
@@ -62,8 +62,6 @@ export async function afficher(main) {
       <div class="details">
         <div><span>Bénéfice net</span><strong>${euros(mois.benefice)}</strong></div>
         <div><span>Frais réels</span><strong>${euros(mois.fraisReels)}</strong></div>
-        <div><span>Heures</span><strong>${heuresFr(mois.heures)}</strong></div>
-        <div><span>Taux horaire net</span><strong>${mois.tauxHoraireNet != null ? euros(mois.tauxHoraireNet) + '/h' : '–'}</strong></div>
       </div>
       <a class="lien-bilan" href="#/bilan">📊 Voir le bilan de l'année ›</a>
     </div>
@@ -72,6 +70,8 @@ export async function afficher(main) {
 
     ${aFacturer.length ? `<a class="alerte rouge" href="#/chantiers?statut=a_facturer">
       🔴 <span><strong>${aFacturer.length} à facturer dans Odoo</strong> · ${euros(somme(aFacturer, 'facture'))}</span> ›</a>` : ''}
+
+    ${graphiqueMois(chantiers, maintenant)}
 
     <h2>Frais généraux</h2>
     <a class="btn depense" href="#/mouvement/nouveau?sens=depense">− Dépense</a>
@@ -92,7 +92,10 @@ export async function afficher(main) {
             <small>${g.chantiers.length} intervention(s) · dernière le ${dateFr(g.derniere)}
               ${g.aFacturer ? ` · 🔴 ${g.aFacturer}` : ''}</small>
           </div>
-          <span class="montant ${classeMarge(g.moy.benefice)}">${euros(g.moy.benefice)}</span>
+          <div class="montant-double">
+            <span class="montant">${euros(g.moy.facture)}</span>
+            <small class="${classeMarge(g.moy.benefice)}">net ${euros(g.moy.benefice)}</small>
+          </div>
         </summary>
         <div class="liste">
           ${g.chantiers.slice(0, 5).map(c => ligneChantier(c, { sansClient: true })).join('')}
@@ -100,4 +103,40 @@ export async function afficher(main) {
         <a class="btn lien" href="#/client/${g.client.id}">Voir la fiche${g.chantiers.length > 5 ? ` et les ${g.chantiers.length} interventions` : ''} ›</a>
       </details>`).join('') || '<p class="vide">Aucune intervention pour l\'instant.</p>'}
 `;
+  brancherGraphique(main);
+}
+
+// ---------- Graphique : chiffre d'affaires (facturé) des 12 derniers mois ----------
+function graphiqueMois(chantiers, maintenant) {
+  const mois = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(maintenant.getFullYear(), maintenant.getMonth() - 11 + i, 1);
+    const prefixe = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    return { d, ...moyennes(chantiers.filter(c => (c.date_debut || '').startsWith(prefixe))) };
+  });
+  const max = Math.max(1, ...mois.map(m => m.facture));
+  const nom = d => d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+  const detail = m => `${nom(m.d)} · <strong>${euros(m.facture)}</strong> facturé · net ${euros(m.benefice)}`;
+  return `
+    <div class="carte graphique">
+      <h3>📈 Chiffre d'affaires par mois</h3>
+      <p class="graphique-detail" aria-live="polite">${detail(mois[11])}</p>
+      <div class="graphique-barres" role="list">
+        ${mois.map((m, i) => `
+          <button type="button" class="g-col ${i === 11 ? 'choisi' : ''}" role="listitem"
+            data-detail="${esc(detail(m))}" aria-label="${nom(m.d)} : ${euros(m.facture)} facturé">
+            <span class="g-piste"><span class="g-barre" style="height:${(m.facture / max) * 100}%"></span></span>
+            <span class="g-mois">${m.d.toLocaleDateString('fr-FR', { month: 'narrow' })}</span>
+          </button>`).join('')}
+      </div>
+      <p class="aide g-aide">Touche une barre pour voir le mois.</p>
+    </div>`;
+}
+
+function brancherGraphique(main) {
+  const detail = main.querySelector('.graphique-detail');
+  main.querySelectorAll('.g-col').forEach(b => b.onclick = () => {
+    main.querySelector('.g-col.choisi')?.classList.remove('choisi');
+    b.classList.add('choisi');
+    detail.innerHTML = b.dataset.detail;
+  });
 }

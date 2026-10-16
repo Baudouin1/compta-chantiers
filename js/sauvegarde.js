@@ -363,6 +363,8 @@ export async function fabriquerSauvegarde(email) {
   F = new Feuille();
   F.tableau(0, [
     { titre: 'Nom', val: c => c.nom, largeur: 22 },
+    { titre: 'Type', val: c => (c.type_client === 'pro' ? 'Pro' : 'Particulier'), largeur: 12 },
+    { titre: 'SIRET', val: c => c.siret, largeur: 17 },
     { titre: 'Téléphone', val: c => c.telephone, largeur: 15 },
     { titre: 'Email', val: c => c.email, largeur: 24 },
     { titre: 'Adresse', val: c => c.adresse, largeur: 30, retour: true },

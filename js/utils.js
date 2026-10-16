@@ -344,6 +344,8 @@ export function menuChoix(titreMenu, options) {
     if (i !== undefined && i !== 'annuler') options[i].action();
   };
   document.body.appendChild(fond);
+  // Changement de page (retour, lien…) : on ferme le menu
+  window.addEventListener('hashchange', () => fond.remove(), { once: true });
 }
 
 // ---------- Saisie d'une durée : deux cases "h" et "min" (clavier chiffré de l'iPhone) ----------

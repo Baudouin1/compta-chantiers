@@ -8,6 +8,9 @@ import { tarifsGeneraux, tarifsClient, listeBateaux, moyennes } from '../calculs
 import { LIBELLES_TARIFS, lireNombre } from './reglages.js';
 import { ligneChantier } from './chantiers.js';
 
+// Tarifs qu'un client peut avoir à lui (la marge sur les produits change à chaque fois : elle se règle sur l'intervention)
+const TARIFS_CLIENT = CHAMPS_TARIFS.filter(k => k !== 'marge_produits');
+
 export async function liste(main) {
   titre('Clients');
   const clients = await q(db.from('clients').select('id, nom, bateau, port').order('nom'));
@@ -21,7 +24,7 @@ export async function liste(main) {
           <span class="pastille" style="font-size:17px;font-weight:700;color:var(--marine-2)">${esc(initiales(c.nom))}</span>
           <div>
             <strong>${esc(c.nom)}</strong>
-            <small>${esc([c.bateau, c.port].filter(Boolean).join(' · '))}</small>
+            <small>${esc([c.type_client === 'pro' ? '🏢 Pro' : null, c.bateau, c.port].filter(Boolean).join(' · '))}</small>
           </div>
           <span class="fleche">›</span>
         </a>`).join('') || '<p class="vide">Aucun client pour l\'instant.</p>'}
@@ -54,8 +57,10 @@ export async function fiche(main, { id }) {
     : '';
 
   const infos = [
+    ['Type', c.type_client === 'pro' ? '🏢 Professionnel' : '👤 Particulier'],
+    ['SIRET', c.type_client === 'pro' && esc(c.siret)],
     ['Téléphone', c.telephone && `<a href="tel:${esc(c.telephone)}">${esc(c.telephone)}</a>`],
-    ['Email', c.email && `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`],
+    ['Email', c.email && `<a href="#email">${esc(c.email)}</a>`],
     ['Adresse', esc(c.adresse)],
     [listeBateaux(c).length > 1 ? 'Bateaux' : 'Bateau', esc(c.bateau)],
     ['Port / emplacement', esc(c.port)],
@@ -69,7 +74,7 @@ export async function fiche(main, { id }) {
   const actions = [
     tel && ['📞', 'Appeler', `tel:${tel}`],
     tel && ['💬', 'Message', `sms:${tel}`],
-    c.email && ['✉️', 'Email', `mailto:${c.email}`],
+    c.email && ['✉️', 'Email', '#email'],
     lieu && ['📍', 'Itinéraire', '#itineraire'],
     ['📅', 'Rendez-vous', `#/calendrier?client=${c.id}`],
   ].filter(Boolean);
@@ -129,6 +134,17 @@ export async function fiche(main, { id }) {
     voirTout.remove();
   };
 
+  // Email : choix de l'appli (Gmail plutôt que l'appli Mail / Outlook par défaut de l'iPhone)
+  main.querySelectorAll('[href="#email"]').forEach(lien => lien.onclick = e => {
+    e.preventDefault();
+    const to = encodeURIComponent(c.email);
+    menuChoix(`Écrire à ${c.email}`, [
+      { texte: '📧 Gmail', action: () => ouvrirAppli(`googlegmail:///co?to=${to}`, `https://mail.google.com/mail/?view=cm&fs=1&to=${to}`) },
+      { texte: '🌐 Gmail dans le navigateur', action: () => window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=${to}`, '_blank') },
+      { texte: '✉️ Autre appli (Mail, Outlook…)', action: () => { location.href = `mailto:${c.email}`; } },
+    ]);
+  });
+
   const iti = main.querySelector('[href="#itineraire"]');
   if (iti) iti.onclick = e => {
     e.preventDefault();
@@ -157,6 +173,11 @@ export async function formulaire(main, { id }) {
   main.innerHTML = `
     <form class="carte" id="form-client">
       ${champ('nom', 'Nom *', 'text', 'required')}
+      <div class="segments" role="radiogroup" aria-label="Type de client">
+        <label class="neutre"><input type="radio" name="type_client" value="particulier" ${c.type_client !== 'pro' ? 'checked' : ''}><span>👤 Particulier</span></label>
+        <label class="neutre"><input type="radio" name="type_client" value="pro" ${c.type_client === 'pro' ? 'checked' : ''}><span>🏢 Professionnel</span></label>
+      </div>
+      <div id="champ-siret">${champ('siret', 'N° SIRET', 'text', 'inputmode="numeric" placeholder="14 chiffres"')}</div>
       ${champ('telephone', 'Téléphone', 'tel')}
       ${champ('email', 'Email', 'email')}
       ${champ('adresse', 'Adresse')}
@@ -176,10 +197,10 @@ export async function formulaire(main, { id }) {
       <label id="champ-forfait">Forfait par bateau et par passage (€)
         <input name="forfait_bateau" inputmode="decimal" value="${nombreFr(c.forfait_bateau)}" placeholder="ex. 107">
       </label>
-      <details class="tarifs-detail" ${CHAMPS_TARIFS.some(k => c[k] != null) ? 'open' : ''}>
-        <summary>Tarifs de ce client ${CHAMPS_TARIFS.some(k => c[k] != null) ? '(personnalisés)' : '(tarifs généraux)'}</summary>
+      <details class="tarifs-detail" ${TARIFS_CLIENT.some(k => c[k] != null) ? 'open' : ''}>
+        <summary>Tarifs de ce client ${TARIFS_CLIENT.some(k => c[k] != null) ? '(personnalisés)' : '(tarifs généraux)'}</summary>
         <p class="aide">Préremplis avec tes tarifs généraux. Change-les seulement si ce client a un prix différent.</p>
-        ${LIBELLES_TARIFS.map(([k, label, unite]) => `
+        ${LIBELLES_TARIFS.filter(([k]) => TARIFS_CLIENT.includes(k)).map(([k, label, unite]) => `
           <label>${label} (${unite})
             <input name="${k}" inputmode="decimal" value="${nombreFr(tarifs[k])}">
             <small class="aide">Tarif général : ${nombreFr(generaux[k])} ${unite}</small>
@@ -195,6 +216,10 @@ export async function formulaire(main, { id }) {
     </form>
     ${id ? '<button class="btn danger" id="supprimer">Supprimer ce client</button>' : ''}`;
 
+  const majType = () => { main.querySelector('#champ-siret').hidden = !main.querySelector('[name=type_client][value=pro]').checked; };
+  main.querySelectorAll('[name=type_client]').forEach(x => x.onchange = majType);
+  majType();
+
   const selMode = main.querySelector('#mode-facturation');
   const majMode = () => { main.querySelector('#champ-forfait').hidden = selMode.value !== 'forfait'; };
   selMode.onchange = majMode;
@@ -206,6 +231,9 @@ export async function formulaire(main, { id }) {
       throw new Error('Numéro de téléphone invalide.');
     }
     if (data.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(data.email)) throw new Error('Adresse email invalide.');
+    // SIRET : seulement pour les pros, 14 chiffres
+    data.siret = data.type_client === 'pro' ? (data.siret || '').replace(/\s/g, '') || null : null;
+    if (data.siret && !/^\d{14}$/.test(data.siret)) throw new Error('Le n° SIRET doit faire 14 chiffres.');
     if (data.trajet_km) {
       data.trajet_km = lireMontant(data.trajet_km);
       if (!data.trajet_km || data.trajet_km > 5000) throw new Error('Distance invalide (en km, ex. 42 ou 42,5).');
@@ -216,7 +244,7 @@ export async function formulaire(main, { id }) {
     data.forfait_bateau = data.forfait_bateau ? lireNombre(data.forfait_bateau) : null;
     if (data.mode_facturation === 'forfait' && !data.forfait_bateau) throw new Error('Indique le montant du forfait par bateau.');
     // Tarifs : on ne garde que ceux qui diffèrent des tarifs généraux
-    for (const k of CHAMPS_TARIFS) {
+    for (const k of TARIFS_CLIENT) {
       if (!data[k]) { data[k] = null; continue; }
       const v = lireNombre(data[k]);
       if (v == null) throw new Error('Un des tarifs n\'est pas un nombre valide (ex. 37 ou 17,16).');
